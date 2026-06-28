@@ -87,6 +87,14 @@ function round2(n) {
   return Math.round(n * 100) / 100;
 }
 
+function toCents(n) {
+  return Math.round((Number(n) || 0) * 100);
+}
+
+function fromCents(cents) {
+  return cents / 100;
+}
+
 // ─── Seguridad ────────────────────────────────────────────
 function escapeHtml(str) {
   return String(str)
@@ -124,64 +132,121 @@ function totalComidaComunTotal() {
   return comidaComun.reduce((acc, c) => acc + c.precio, 0);
 }
 
-function calcularResumen() {
-  const totalBebidas = round2(comensales.reduce((acc, c) => acc + totalBebidasComensal(c), 0));
-  const totalComida  = round2(totalComidaComunTotal());
-  const n = comensales.length;
-  const repartoPorPersona = n > 0 ? round2(totalComida / n) : 0;
-  const taxTotal = round2(taxTotalIngresado || 0);
-
-  // Subtotal pre-IVA por comensal
-  const subtotalesPorComensal = comensales.map(c => {
-    const bebidas  = round2(totalBebidasComensal(c));
-    const comida   = repartoPorPersona;
-    const subtotal = round2(bebidas + comida);
-    return { comensal: c, bebidas, comida, subtotal };
-  });
-
-  // Reparto de IVA proporcional al subtotal pre-IVA (método largest remainder)
-  const totalSubtotal = Math.round(
-    subtotalesPorComensal.reduce((acc, t) => acc + t.subtotal, 0) * 100
-  );
-  const taxCents = Math.round(taxTotal * 100);
-
-  let ivasPorComensal;
-  if (totalSubtotal === 0 || taxCents === 0) {
-    ivasPorComensal = subtotalesPorComensal.map(() => 0);
-  } else {
-    // Valor exacto (en céntimos) para cada comensal
-    const ivasExactos = subtotalesPorComensal.map(t =>
-      taxCents * (Math.round(t.subtotal * 100) / totalSubtotal)
-    );
-    // Floor en céntimos
-    const ivasFloorCents = ivasExactos.map(v => Math.floor(v));
-    // Céntimos restantes por repartir (largest remainder)
-    const sumFloor = ivasFloorCents.reduce((a, b) => a + b, 0);
-    const remainder = taxCents - sumFloor;
-    // Ordenar por mayor parte fraccionaria para distribuir los céntimos sobrantes
-    const indexed = ivasExactos.map((v, i) => ({ i, frac: v - Math.floor(v) }));
-    indexed.sort((a, b) => b.frac - a.frac);
-    for (let k = 0; k < remainder; k++) {
-      ivasFloorCents[indexed[k].i] += 1;
-    }
-    ivasPorComensal = ivasFloorCents.map(c => c / 100);
+function repartirCents(totalCents, pesos) {
+  if (totalCents <= 0 || pesos.length === 0) {
+    return pesos.map(() => 0);
   }
 
-  const totalesPorComensal = subtotalesPorComensal.map((t, i) => ({
+  const totalPeso = pesos.reduce((acc, peso) => acc + peso, 0);
+  if (totalPeso <= 0) {
+    return pesos.map(() => 0);
+  }
+
+  const exactos = pesos.map(peso => totalCents * (peso / totalPeso));
+  const repartidos = exactos.map(Math.floor);
+  let resto = totalCents - repartidos.reduce((acc, cents) => acc + cents, 0);
+
+  const candidatos = exactos
+    .map((valor, i) => ({
+      i,
+      frac: valor - Math.floor(valor),
+      peso: pesos[i],
+    }))
+    .sort((a, b) => b.frac - a.frac || b.peso - a.peso || a.i - b.i);
+
+  for (let k = 0; k < resto; k++) {
+    repartidos[candidatos[k].i] += 1;
+  }
+
+  return repartidos;
+}
+
+function calcularResumenDetallado({
+  comensales: listaComensales = [],
+  bebidas: listaBebidas = [],
+  comidaComun: listaComidaComun = [],
+  totalCuentaIngresado: totalCuenta = 0,
+  taxTotalIngresado: taxTotal = 0,
+} = {}) {
+  const bebidasPorComensalCents = new Map(listaComensales.map(c => [c.id, 0]));
+
+  listaBebidas.forEach(b => {
+    const participantes = (b.participantes || []).filter(pid => bebidasPorComensalCents.has(pid));
+    if (participantes.length === 0) return;
+
+    const subtotalCents = toCents((Number(b.precioUnitario) || 0) * (Number(b.cantidad) || 0));
+    const repartoCents = repartirCents(
+      subtotalCents,
+      participantes.map(() => 1)
+    );
+
+    participantes.forEach((pid, i) => {
+      bebidasPorComensalCents.set(pid, bebidasPorComensalCents.get(pid) + repartoCents[i]);
+    });
+  });
+
+  const totalBebidasCents = Array.from(bebidasPorComensalCents.values())
+    .reduce((acc, cents) => acc + cents, 0);
+  const totalComidaCents = toCents(
+    listaComidaComun.reduce((acc, item) => acc + (Number(item.precio) || 0), 0)
+  );
+  const taxCents = toCents(taxTotal);
+
+  const comidaPorComensalCents = repartirCents(
+    totalComidaCents,
+    listaComensales.map(() => 1)
+  );
+
+  const subtotalesPorComensalCents = listaComensales.map((c, i) => {
+    const bebidasCents = bebidasPorComensalCents.get(c.id) || 0;
+    const comidaCents = comidaPorComensalCents[i] || 0;
+    return {
+      comensal: c,
+      bebidasCents,
+      comidaCents,
+      subtotalCents: bebidasCents + comidaCents,
+    };
+  });
+
+  const ivasPorComensalCents = repartirCents(
+    taxCents,
+    subtotalesPorComensalCents.map(t => t.subtotalCents)
+  );
+
+  const totalesPorComensal = subtotalesPorComensalCents.map((t, i) => ({
     comensal: t.comensal,
-    bebidas:  t.bebidas,
-    comida:   t.comida,
-    subtotal: t.subtotal,
-    iva:      ivasPorComensal[i],
-    total:    round2(t.subtotal + ivasPorComensal[i]),
+    bebidas: fromCents(t.bebidasCents),
+    comida: fromCents(t.comidaCents),
+    subtotal: fromCents(t.subtotalCents),
+    iva: fromCents(ivasPorComensalCents[i] || 0),
+    total: fromCents(t.subtotalCents + (ivasPorComensalCents[i] || 0)),
   }));
 
-  const totalCalculado = round2(totalesPorComensal.reduce((acc, t) => acc + t.total, 0));
-  const totalCuenta    = round2(totalCuentaIngresado || 0);
-  const diferencia     = round2(totalCuenta - totalCalculado);
+  const totalCalculado = fromCents(
+    totalesPorComensal.reduce((acc, t) => acc + toCents(t.total), 0)
+  );
+  const totalCuentaNormalizado = round2(totalCuenta || 0);
 
-  return { totalBebidas, totalComida, taxTotal, repartoPorPersona, totalesPorComensal,
-           totalCalculado, totalCuenta, diferencia };
+  return {
+    totalBebidas: fromCents(totalBebidasCents),
+    totalComida: fromCents(totalComidaCents),
+    taxTotal: fromCents(taxCents),
+    repartoPorPersona: listaComensales.length > 0 ? fromCents(comidaPorComensalCents[0] || 0) : 0,
+    totalesPorComensal,
+    totalCalculado,
+    totalCuenta: totalCuentaNormalizado,
+    diferencia: round2(totalCuentaNormalizado - totalCalculado),
+  };
+}
+
+function calcularResumen() {
+  return calcularResumenDetallado({
+    comensales,
+    bebidas,
+    comidaComun,
+    totalCuentaIngresado,
+    taxTotalIngresado,
+  });
 }
 
 // ─── Renderizado ──────────────────────────────────────────
@@ -286,7 +351,8 @@ function actualizarResumen() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="nombre-persona">${escapeHtml(t.comensal.nombre)}</td>
-      <td>${fmt(t.subtotal)}</td>
+      <td>${fmt(t.bebidas)}</td>
+      <td>${fmt(t.comida)}</td>
       <td style="display:${r.taxTotal > 0 ? '' : 'none'}">${fmt(t.iva)}</td>
       <td class="total-persona">${fmt(t.total)}</td>`;
     tbody.appendChild(tr);
@@ -929,7 +995,8 @@ function salirSesion() {
 
 // ─── Inicialización ───────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', () => {
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
 
   // Listeners de la sección app (los elementos existen en el DOM aunque estén ocultos)
   document.getElementById('nuevo-comensal').addEventListener('keydown', e => {
@@ -1001,4 +1068,15 @@ document.addEventListener('DOMContentLoaded', () => {
     this.value = this.value.toUpperCase();
     this.setSelectionRange(pos, pos);
   });
-});
+  });
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    calcularResumenDetallado,
+    repartirCents,
+    round2,
+    toCents,
+    fromCents,
+  };
+}
