@@ -49,11 +49,17 @@ cp config.example.js config.js
 Edita `config.js` y rellena tus valores:
 
 ```js
-window.SUPABASE_URL      = 'https://xxxxxxxxxxx.supabase.co';
-window.SUPABASE_ANON_KEY = '******';
+window.APP_CONFIG = {
+  SUPABASE_URL:      'https://xxxxxxxxxxx.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJ…tu-anon-key…',
+};
 ```
 
-> ⚠️ `config.js` está en `.gitignore` para que **no subas tus credenciales** al repositorio.
+> **Importante:** `SUPABASE_URL` debe ser la URL base del proyecto Supabase, **sin** `/rest/v1` ni barra final.
+> - ✅ Correcto: `https://abcdefghij.supabase.co`
+> - ❌ Incorrecto: `https://abcdefghij.supabase.co/rest/v1/`
+
+> **GitHub Pages:** la `anon key` de Supabase es una clave pública diseñada para usarse en el navegador. Si publicas la app en GitHub Pages, debes incluir `config.js` en el repositorio para que esté disponible online.
 
 ### 5. Ejecutar la aplicación
 
@@ -75,7 +81,7 @@ npx serve .
 ```
 
 **Opción D – GitHub Pages / Netlify / Vercel**
-Sube el repositorio (sin `config.js`) y configura las variables de entorno como variables de build si usas un bundler, o edita `config.js` directamente en el servidor.
+Sube el repositorio incluyendo `config.js` (con tus claves Supabase) y activa GitHub Pages desde _Settings → Pages_.
 
 ---
 
@@ -125,7 +131,7 @@ DiviCuenta/
 ├── styles.css          # Estilos mobile-first
 ├── app.js              # Lógica de la aplicación (vanilla JS + Supabase)
 ├── config.example.js   # Plantilla de configuración (copiar a config.js)
-├── config.js           # ← Crear a partir del ejemplo (NO subir al repo)
+├── config.js           # ← Crear a partir del ejemplo (necesario en GitHub Pages)
 ├── .gitignore          # Excluye config.js
 ├── supabase/
 │   └── schema.sql      # Schema de BD + políticas RLS
@@ -150,3 +156,29 @@ DiviCuenta/
 | `SUPABASE_URL` | Supabase → Settings → API → Project URL |
 | `SUPABASE_ANON_KEY` | Supabase → Settings → API → anon public key |
 
+---
+
+## Resolución de problemas (GitHub Pages)
+
+### La app muestra "Configuración requerida" aunque `config.js` existe
+
+1. **Verifica que `config.js` está publicado.** Abre en el navegador:  
+   `https://<usuario>.github.io/<repo>/config.js`  
+   Debe mostrarse el contenido del archivo. Si da 404, asegúrate de que el archivo está en `main` y de que GitHub Pages lo está sirviendo desde esa rama.
+
+2. **Espera a que termine el deploy.** Tras hacer commit, GitHub Pages puede tardar 1-2 minutos. Comprueba el estado en: _Actions_ → _pages-build-and-deployment_.
+
+3. **Fuerza la recarga sin caché.** El navegador puede mostrar una versión antigua:
+   - Escritorio: `Ctrl+F5` (Windows/Linux) o `Cmd+Shift+R` (Mac)
+   - Móvil: cierra completamente la pestaña y vuelve a abrirla, o usa modo incógnito.
+
+4. **Comprueba el formato de `config.js`.** Debe ser:
+   ```js
+   window.APP_CONFIG = {
+     SUPABASE_URL:      'https://xxxxxxxxxxx.supabase.co',
+     SUPABASE_ANON_KEY: 'eyJ…',
+   };
+   ```
+   La `SUPABASE_URL` debe ser la URL base sin `/rest/v1` ni barra final.
+
+5. **Abre la consola del navegador** (F12 → Console). Cualquier error de red o de JavaScript aparecerá allí y te indicará la causa exacta.
