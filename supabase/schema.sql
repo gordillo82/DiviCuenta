@@ -55,7 +55,8 @@ create table if not exists shared_food_items (
 -- Total del ticket (uno por sesión)
 create table if not exists bills (
   session_id    uuid primary key references sessions(id) on delete cascade,
-  total_amount  numeric(10,2) not null default 0
+  total_amount  numeric(10,2) not null default 0,
+  tax_total     numeric(10,2) not null default 0   -- IVA total del ticket
 );
 
 -- ─── Row Level Security ───────────────────────────────────
@@ -104,6 +105,14 @@ create index if not exists idx_diners_session        on diners(session_id);
 create index if not exists idx_drinks_session        on drinks(session_id);
 create index if not exists idx_drinks_diner          on drinks(diner_id);
 create index if not exists idx_shared_food_session   on shared_food_items(session_id);
+
+-- ============================================================
+-- MIGRACIÓN: IVA por sesión
+-- ============================================================
+-- Ejecuta este bloque si ya tienes el schema anterior aplicado.
+-- Añade el campo tax_total a la tabla bills (IVA total del ticket).
+-- El valor por defecto es 0 para mantener compatibilidad con sesiones existentes.
+alter table bills add column if not exists tax_total numeric(10,2) not null default 0;
 
 -- ============================================================
 -- MIGRACIÓN: Bebidas compartidas (Opción A – reparto igualitario)
