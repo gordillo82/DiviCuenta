@@ -70,7 +70,8 @@ let totalDebounceTimer = null;
 let totalInputFocused  = false;
 
 // ─── Estado local (espejo de la BD) ───────────────────────
-let comensales = [];   // [{id, nombre, bebidas:[{id, producto, precioUnitario, cantidad}]}]
+let comensales = [];   // [{id, nombre}]
+let bebidas    = [];   // [{id, producto, precioUnitario, cantidad, participantes:[dinerId,...]}]
 let comidaComun = [];  // [{id, concepto, precio}]
 let totalCuentaIngresado = 0;
 
@@ -106,7 +107,14 @@ function limpiarValidacion(input) {
 
 // ─── Cálculos ─────────────────────────────────────────────
 function totalBebidasComensal(comensal) {
-  return comensal.bebidas.reduce((acc, b) => acc + round2(b.precioUnitario * b.cantidad), 0);
+  // Suma la parte proporcional de cada bebida en que participa este comensal
+  return bebidas.reduce((acc, b) => {
+    const n = b.participantes.length;
+    if (n > 0 && b.participantes.includes(comensal.id)) {
+      return acc + round2(round2(b.precioUnitario * b.cantidad) / n);
+    }
+    return acc;
+  }, 0);
 }
 
 function totalComidaComunTotal() {
@@ -153,7 +161,6 @@ function renderComensales() {
     bloque.className  = 'comensal-block';
     bloque.dataset.id = c.id;
 
-    // Cabecera
     const cabecera = document.createElement('div');
     cabecera.className = 'comensal-header';
     cabecera.innerHTML = `
@@ -162,27 +169,6 @@ function renderComensales() {
         🗑 Eliminar
       </button>`;
     bloque.appendChild(cabecera);
-
-    // Lista de bebidas
-    const listaBebidas = document.createElement('div');
-    listaBebidas.className = 'bebidas-list';
-
-    if (c.bebidas.length === 0) {
-      listaBebidas.innerHTML = '<p class="empty-msg">Sin bebidas registradas.</p>';
-    } else {
-      c.bebidas.forEach(b => {
-        const fila = document.createElement('div');
-        fila.className = 'bebida-row';
-        const subtotal = round2(b.precioUnitario * b.cantidad);
-        fila.innerHTML = `
-          <span>${escapeHtml(b.producto)}</span>
-          <span class="bebida-precio">${b.cantidad} × ${fmt(b.precioUnitario)} = ${fmt(subtotal)}</span>
-          <button class="btn btn-ghost btn-sm" onclick="eliminarBebida('${b.id}')" title="Eliminar bebida">✕</button>`;
-        listaBebidas.appendChild(fila);
-      });
-    }
-    bloque.appendChild(listaBebidas);
-    bloque.appendChild(crearFormBebida(c.id));
     contenedor.appendChild(bloque);
   });
 
@@ -261,27 +247,93 @@ function actualizarResumen() {
   });
 }
 
-/** Mini-formulario para añadir bebida a un comensal. */
-function crearFormBebida(comensalId) {
+/** Formulario global para añadir bebida con selección de participantes. */
+function crearFormBebidaCompartida() {
   const form = document.createElement('div');
-  form.className = 'input-row';
-  // comensalId es UUID (solo contiene [a-f0-9-]): seguro en atributo onclick con comillas simples
+  form.className = 'bebida-compartida-form';
+
+  const checkboxesHtml = comensales.map(c => `
+    <label class="participante-chip">
+      <input type="checkbox" id="beb-part-${c.id}" value="${c.id}">
+      ${escapeHtml(c.nombre)}
+    </label>`).join('');
+
   form.innerHTML = `
-    <div class="field">
-      <label>Bebida</label>
-      <input type="text" placeholder="Ej: Vino tinto" id="beb-prod-${comensalId}" maxlength="60">
+    <div class="input-row">
+      <div class="field">
+        <label>Bebida</label>
+        <input type="text" placeholder="Ej: Vino tinto" id="beb-global-prod" maxlength="60"
+               autocomplete="off" autocorrect="off">
+      </div>
+      <div class="field-sm">
+        <label>Precio (€)</label>
+        <input type="number" placeholder="0.00" id="beb-global-precio" min="0" step="0.01">
+      </div>
+      <div class="field-sm">
+        <label>Uds</label>
+        <input type="number" placeholder="1" id="beb-global-cant" min="1" step="1" value="1">
+      </div>
     </div>
-    <div class="field-sm">
-      <label>Precio (€)</label>
-      <input type="number" placeholder="0.00" id="beb-precio-${comensalId}" min="0" step="0.01">
+    <div class="participantes-selector">
+      <span class="participantes-label">¿Quién la tomó?</span>
+      <div class="participantes-chips">${checkboxesHtml}</div>
+      <p class="field-error" id="beb-part-error" style="display:none">
+        Selecciona al menos un comensal.
+      </p>
     </div>
-    <div class="field-sm">
-      <label>Uds</label>
-      <input type="number" placeholder="1" id="beb-cant-${comensalId}" min="1" step="1" value="1">
-    </div>
-    <button class="btn btn-primary btn-sm" style="margin-top:1.25rem"
-            onclick="añadirBebida('${comensalId}')">+ Añadir</button>`;
+    <button class="btn btn-primary btn-sm" style="margin-top:0.75rem"
+            onclick="añadirBebidaCompartida()">+ Añadir bebida</button>`;
   return form;
+}
+
+function renderBebidas() {
+  const badge = document.getElementById('badge-bebidas');
+  if (badge) badge.textContent = bebidas.length;
+
+  // Formulario: se actualiza cuando cambian los comensales
+  const formContainer = document.getElementById('bebidas-form-container');
+  if (formContainer) {
+    if (comensales.length === 0) {
+      formContainer.innerHTML = '<p class="empty-msg">Añade comensales primero para registrar bebidas.</p>';
+    } else {
+      formContainer.innerHTML = '';
+      formContainer.appendChild(crearFormBebidaCompartida());
+    }
+  }
+
+  // Lista de bebidas
+  const lista = document.getElementById('lista-bebidas');
+  if (!lista) return;
+
+  if (bebidas.length === 0) {
+    lista.innerHTML = '<p class="empty-msg">Sin bebidas registradas.</p>';
+    return;
+  }
+
+  lista.innerHTML = '';
+  bebidas.forEach(b => {
+    const subtotal = round2(b.precioUnitario * b.cantidad);
+    const n = b.participantes.length || 1;
+    const porCada = round2(subtotal / n);
+
+    const nombresParticipantes = b.participantes
+      .map(pid => {
+        const c = comensales.find(x => x.id === pid);
+        return c ? escapeHtml(c.nombre) : '?';
+      })
+      .join(', ');
+
+    const fila = document.createElement('div');
+    fila.className = 'bebida-compartida-row';
+    fila.innerHTML = `
+      <div class="bebida-info">
+        <span class="bebida-nombre">${escapeHtml(b.producto)}</span>
+        <span class="bebida-precio">${b.cantidad} × ${fmt(b.precioUnitario)} = ${fmt(subtotal)}</span>
+        <span class="bebida-participantes">👥 ${nombresParticipantes}${n > 1 ? ` · ${fmt(porCada)} c/u` : ''}</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="eliminarBebida('${b.id}')" title="Eliminar bebida">✕</button>`;
+    lista.appendChild(fila);
+  });
 }
 
 // ─── Presencia ────────────────────────────────────────────
@@ -327,28 +379,33 @@ function setConnectionStatus(status) {
 async function fetchAllData() {
   if (!db || !sessionId) return;
 
-  const [dinersRes, drinksRes, foodRes, billRes] = await Promise.all([
+  const [dinersRes, drinksRes, drinkPartsRes, foodRes, billRes] = await Promise.all([
     db.from('diners').select('*').eq('session_id', sessionId).order('created_at'),
-    db.from('drinks').select('*').eq('session_id', sessionId),
+    db.from('drinks').select('*').eq('session_id', sessionId).order('created_at'),
+    db.from('drink_participants').select('*').eq('session_id', sessionId),
     db.from('shared_food_items').select('*').eq('session_id', sessionId).order('created_at'),
     db.from('bills').select('*').eq('session_id', sessionId).maybeSingle(),
   ]);
 
-  const diners = dinersRes.data || [];
-  const drinks = drinksRes.data || [];
+  const diners    = dinersRes.data    || [];
+  const drinks    = drinksRes.data    || [];
+  const drinkParts = drinkPartsRes.data || [];
 
-  comensales = diners.map(d => ({
-    id:     d.id,
-    nombre: d.name,
-    bebidas: drinks
-      .filter(b => b.diner_id === d.id)
-      .map(b => ({
-        id:             b.id,
-        producto:       b.product,
-        precioUnitario: parseFloat(b.unit_price),
-        cantidad:       b.quantity,
-      })),
-  }));
+  comensales = diners.map(d => ({ id: d.id, nombre: d.name }));
+
+  bebidas = drinks.map(b => {
+    const parts = drinkParts.filter(p => p.drink_id === b.id).map(p => p.diner_id);
+    // Compatibilidad hacia atrás: si no hay participantes en drink_participants,
+    // usar diner_id como participante único
+    const participantes = parts.length > 0 ? parts : (b.diner_id ? [b.diner_id] : []);
+    return {
+      id:             b.id,
+      producto:       b.product,
+      precioUnitario: parseFloat(b.unit_price),
+      cantidad:       b.quantity,
+      participantes,
+    };
+  });
 
   comidaComun = (foodRes.data || []).map(f => ({
     id:       f.id,
@@ -366,6 +423,7 @@ async function fetchAllData() {
   }
 
   renderComensales();
+  renderBebidas();
   renderComidaComun();
 }
 
@@ -383,6 +441,10 @@ function setupRealtime() {
     }, fetchAllData)
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'drinks',
+      filter: `session_id=eq.${sessionId}`,
+    }, fetchAllData)
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'drink_participants',
       filter: `session_id=eq.${sessionId}`,
     }, fetchAllData)
     .on('postgres_changes', {
@@ -444,10 +506,10 @@ async function eliminarComensal(id) {
 
 // ─── Acciones: bebidas ────────────────────────────────────
 
-async function añadirBebida(comensalId) {
-  const inputProd   = document.getElementById(`beb-prod-${comensalId}`);
-  const inputPrecio = document.getElementById(`beb-precio-${comensalId}`);
-  const inputCant   = document.getElementById(`beb-cant-${comensalId}`);
+async function añadirBebidaCompartida() {
+  const inputProd   = document.getElementById('beb-global-prod');
+  const inputPrecio = document.getElementById('beb-global-precio');
+  const inputCant   = document.getElementById('beb-global-cant');
 
   const producto       = inputProd.value.trim();
   const precioUnitario = parseFloat(inputPrecio.value);
@@ -468,14 +530,37 @@ async function añadirBebida(comensalId) {
   }
   limpiarValidacion(inputCant);
 
-  const { error } = await db.from('drinks').insert({
+  const participantes = comensales
+    .filter(c => {
+      const cb = document.getElementById(`beb-part-${c.id}`);
+      return cb && cb.checked;
+    })
+    .map(c => c.id);
+
+  const errMsg = document.getElementById('beb-part-error');
+  if (participantes.length === 0) {
+    if (errMsg) errMsg.style.display = 'block';
+    return;
+  }
+  if (errMsg) errMsg.style.display = 'none';
+
+  const { data: drink, error } = await db.from('drinks').insert({
     session_id: sessionId,
-    diner_id:   comensalId,
     product:    producto,
     unit_price: round2(precioUnitario),
     quantity:   cantidad,
-  });
+  }).select().single();
+
   if (error) { console.error('Error añadiendo bebida:', error); return; }
+
+  const participantRows = participantes.map(dinerId => ({
+    drink_id:   drink.id,
+    diner_id:   dinerId,
+    session_id: sessionId,
+  }));
+
+  const { error: partError } = await db.from('drink_participants').insert(participantRows);
+  if (partError) { console.error('Error añadiendo participantes de bebida:', partError); return; }
 
   await fetchAllData();
 }
