@@ -67,13 +67,16 @@ let participantId = null;
 let realtimeChannel   = null;
 let presenceChannel   = null;
 let totalDebounceTimer = null;
+let taxDebounceTimer   = null;
 let totalInputFocused  = false;
+let taxInputFocused    = false;
 
 // ─── Estado local (espejo de la BD) ───────────────────────
 let comensales = [];   // [{id, nombre}]
 let bebidas    = [];   // [{id, producto, precioUnitario, cantidad, participantes:[dinerId,...]}]
 let comidaComun = [];  // [{id, concepto, precio}]
 let totalCuentaIngresado = 0;
+let taxTotalIngresado    = 0;  // IVA total del ticket
 
 // ─── Helpers de formato ───────────────────────────────────
 function fmt(n) {
@@ -126,19 +129,58 @@ function calcularResumen() {
   const totalComida  = round2(totalComidaComunTotal());
   const n = comensales.length;
   const repartoPorPersona = n > 0 ? round2(totalComida / n) : 0;
+  const taxTotal = round2(taxTotalIngresado || 0);
 
-  const totalesPorComensal = comensales.map(c => ({
-    comensal: c,
-    bebidas:  round2(totalBebidasComensal(c)),
-    comida:   repartoPorPersona,
-    total:    round2(totalBebidasComensal(c) + repartoPorPersona),
+  // Subtotal pre-IVA por comensal
+  const subtotalesPorComensal = comensales.map(c => {
+    const bebidas  = round2(totalBebidasComensal(c));
+    const comida   = repartoPorPersona;
+    const subtotal = round2(bebidas + comida);
+    return { comensal: c, bebidas, comida, subtotal };
+  });
+
+  // Reparto de IVA proporcional al subtotal pre-IVA (método largest remainder)
+  const totalSubtotal = Math.round(
+    subtotalesPorComensal.reduce((acc, t) => acc + t.subtotal, 0) * 100
+  );
+  const taxCents = Math.round(taxTotal * 100);
+
+  let ivasPorComensal;
+  if (totalSubtotal === 0 || taxCents === 0) {
+    ivasPorComensal = subtotalesPorComensal.map(() => 0);
+  } else {
+    // Valor exacto (en céntimos) para cada comensal
+    const ivasExactos = subtotalesPorComensal.map(t =>
+      taxCents * (Math.round(t.subtotal * 100) / totalSubtotal)
+    );
+    // Floor en céntimos
+    const ivasFloorCents = ivasExactos.map(v => Math.floor(v));
+    // Céntimos restantes por repartir (largest remainder)
+    const sumFloor = ivasFloorCents.reduce((a, b) => a + b, 0);
+    const remainder = taxCents - sumFloor;
+    // Ordenar por mayor parte fraccionaria para distribuir los céntimos sobrantes
+    const indexed = ivasExactos.map((v, i) => ({ i, frac: v - Math.floor(v) }));
+    indexed.sort((a, b) => b.frac - a.frac);
+    for (let k = 0; k < remainder; k++) {
+      ivasFloorCents[indexed[k].i] += 1;
+    }
+    ivasPorComensal = ivasFloorCents.map(c => c / 100);
+  }
+
+  const totalesPorComensal = subtotalesPorComensal.map((t, i) => ({
+    comensal: t.comensal,
+    bebidas:  t.bebidas,
+    comida:   t.comida,
+    subtotal: t.subtotal,
+    iva:      ivasPorComensal[i],
+    total:    round2(t.subtotal + ivasPorComensal[i]),
   }));
 
   const totalCalculado = round2(totalesPorComensal.reduce((acc, t) => acc + t.total, 0));
   const totalCuenta    = round2(totalCuentaIngresado || 0);
   const diferencia     = round2(totalCuenta - totalCalculado);
 
-  return { totalBebidas, totalComida, repartoPorPersona, totalesPorComensal,
+  return { totalBebidas, totalComida, taxTotal, repartoPorPersona, totalesPorComensal,
            totalCalculado, totalCuenta, diferencia };
 }
 
@@ -214,6 +256,7 @@ function actualizarResumen() {
 
   document.getElementById('res-bebidas').textContent    = fmt(r.totalBebidas);
   document.getElementById('res-comida').textContent     = fmt(r.totalComida);
+  document.getElementById('res-iva').textContent        = fmt(r.taxTotal);
   document.getElementById('res-total-calc').textContent = fmt(r.totalCalculado);
   document.getElementById('res-total-cuenta').textContent = fmt(r.totalCuenta);
 
@@ -234,14 +277,18 @@ function actualizarResumen() {
     difLabel.textContent = r.diferencia > 0 ? '⚠️ FALTA' : '⚠️ SOBRA';
   }
 
+  // Mostrar u ocultar la columna IVA según si hay IVA ingresado
+  const thIva = document.getElementById('th-iva');
+  if (thIva) thIva.style.display = r.taxTotal > 0 ? '' : 'none';
+
   const tbody = document.getElementById('tabla-cuerpo');
   tbody.innerHTML = '';
   r.totalesPorComensal.forEach(t => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="nombre-persona">${escapeHtml(t.comensal.nombre)}</td>
-      <td>${fmt(t.bebidas)}</td>
-      <td>${fmt(t.comida)}</td>
+      <td>${fmt(t.subtotal)}</td>
+      <td style="display:${r.taxTotal > 0 ? '' : 'none'}">${fmt(t.iva)}</td>
       <td class="total-persona">${fmt(t.total)}</td>`;
     tbody.appendChild(tr);
   });
@@ -414,12 +461,18 @@ async function fetchAllData() {
   }));
 
   const billTotal = billRes.data ? parseFloat(billRes.data.total_amount) : 0;
+  const taxTotal  = billRes.data ? parseFloat(billRes.data.tax_total || 0) : 0;
   totalCuentaIngresado = billTotal;
+  taxTotalIngresado    = taxTotal;
 
   // Solo actualizar el input si el usuario no está escribiendo en él
   if (!totalInputFocused) {
     const input = document.getElementById('total-cuenta');
     if (input) input.value = billTotal > 0 ? billTotal : '';
+  }
+  if (!taxInputFocused) {
+    const ivaInput = document.getElementById('iva-total');
+    if (ivaInput) ivaInput.value = taxTotal > 0 ? taxTotal : '';
   }
 
   renderComensales();
@@ -621,6 +674,19 @@ async function syncTotalCuenta(valor) {
     { onConflict: 'session_id' }
   );
   if (error) console.error('Error sincronizando total:', error);
+}
+
+async function syncTaxTotal(valor) {
+  if (!db || !sessionId) return;
+  const tax = round2(parseFloat(valor) || 0);
+  taxTotalIngresado = tax;
+  actualizarResumen();
+
+  const { error } = await db.from('bills').upsert(
+    { session_id: sessionId, tax_total: tax },
+    { onConflict: 'session_id' }
+  );
+  if (error) console.error('Error sincronizando IVA:', error);
 }
 
 // ─── Código de sesión ─────────────────────────────────────
@@ -889,6 +955,21 @@ document.addEventListener('DOMContentLoaded', () => {
     actualizarResumen();
     if (db && sessionId) {
       totalDebounceTimer = setTimeout(() => syncTotalCuenta(totalInput.value), 800);
+    }
+  });
+
+  const ivaInput = document.getElementById('iva-total');
+  ivaInput.addEventListener('focus', () => { taxInputFocused = true; });
+  ivaInput.addEventListener('blur',  () => {
+    taxInputFocused = false;
+    if (db && sessionId) syncTaxTotal(ivaInput.value);
+  });
+  ivaInput.addEventListener('input', () => {
+    clearTimeout(taxDebounceTimer);
+    taxTotalIngresado = round2(parseFloat(ivaInput.value) || 0);
+    actualizarResumen();
+    if (db && sessionId) {
+      taxDebounceTimer = setTimeout(() => syncTaxTotal(ivaInput.value), 800);
     }
   });
 
