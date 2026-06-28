@@ -18,20 +18,43 @@
 let db = null;
 
 function initSupabase() {
-  if (window.__configMissing ||
-      !window.SUPABASE_URL ||
-      !window.SUPABASE_ANON_KEY ||
-      window.SUPABASE_URL.includes('tu-proyecto') ||
-      window.SUPABASE_ANON_KEY === 'tu-anon-key-aqui') {
-    mostrarErrorConfig();
+  // Bridge window.APP_CONFIG (object format) to flat globals
+  if (window.APP_CONFIG) {
+    if (window.APP_CONFIG.SUPABASE_URL)
+      window.SUPABASE_URL = String(window.APP_CONFIG.SUPABASE_URL).trim();
+    if (window.APP_CONFIG.SUPABASE_ANON_KEY)
+      window.SUPABASE_ANON_KEY = String(window.APP_CONFIG.SUPABASE_ANON_KEY).trim();
+  } else if (window.SUPABASE_URL) {
+    window.SUPABASE_URL = String(window.SUPABASE_URL).trim();
+    if (window.SUPABASE_ANON_KEY)
+      window.SUPABASE_ANON_KEY = String(window.SUPABASE_ANON_KEY).trim();
+  }
+
+  // Normalize URL: strip accidental /rest/v1 suffix and trailing slash
+  if (window.SUPABASE_URL) {
+    window.SUPABASE_URL = window.SUPABASE_URL
+      .replace(/\/rest\/v1\/?$/, '')
+      .replace(/\/$/, '');
+  }
+
+  if (window.__configMissing) {
+    mostrarErrorConfig('no-file');
     return false;
   }
+
+  if (!window.SUPABASE_URL || !window.SUPABASE_ANON_KEY ||
+      window.SUPABASE_URL.includes('tu-proyecto') ||
+      window.SUPABASE_ANON_KEY === 'tu-anon-key-aqui') {
+    mostrarErrorConfig('invalid-keys');
+    return false;
+  }
+
   try {
     const { createClient } = window.supabase;
     db = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
     return true;
   } catch (_) {
-    mostrarErrorConfig();
+    mostrarErrorConfig('client-error');
     return false;
   }
 }
@@ -666,9 +689,23 @@ function ocultarLobbyError() {
   if (el) el.style.display = 'none';
 }
 
-function mostrarErrorConfig() {
+function mostrarErrorConfig(razon) {
   const lobby = document.getElementById('lobby');
   if (!lobby) return;
+
+  let detalle;
+  if (razon === 'no-file') {
+    detalle = `<strong>Problema:</strong> <code>config.js</code> no se pudo cargar.<br>
+      Asegúrate de que el archivo existe en la raíz del repositorio y está publicado en GitHub Pages.<br>
+      Compruébalo abriendo <code>…/DiviCuenta/config.js</code> directamente en el navegador.`;
+  } else if (razon === 'invalid-keys') {
+    detalle = `<strong>Problema:</strong> Las claves en <code>config.js</code> son inválidas o siguen siendo las de ejemplo.<br>
+      Revisa que <code>SUPABASE_URL</code> sea la URL base de tu proyecto (sin <code>/rest/v1</code>)<br>
+      y que <code>SUPABASE_ANON_KEY</code> contenga tu clave anon pública real.`;
+  } else {
+    detalle = `Error al crear el cliente Supabase. Verifica que las claves en <code>config.js</code> sean correctas.`;
+  }
+
   lobby.innerHTML = `
     <div class="lobby-card">
       <div class="lobby-logo">⚙️</div>
@@ -676,11 +713,15 @@ function mostrarErrorConfig() {
       <p class="lobby-subtitle">Para usar DiviCuenta necesitas configurar un proyecto Supabase.</p>
       <div style="background:#fef3c7;border:1px solid #fcd34d;border-radius:0.5rem;
                   padding:1rem;margin-top:1rem;font-size:0.88rem;text-align:left;line-height:1.7;">
+        ${detalle}
+      </div>
+      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:0.5rem;
+                  padding:1rem;margin-top:0.75rem;font-size:0.85rem;text-align:left;line-height:1.7;">
         <strong>Pasos:</strong><br>
-        1. Copia <code>config.example.js</code> → <code>config.js</code><br>
+        1. Crea o edita <code>config.js</code> en la raíz del repo<br>
         2. Rellena <code>SUPABASE_URL</code> y <code>SUPABASE_ANON_KEY</code><br>
-        3. Ejecuta el SQL de <code>supabase/schema.sql</code> en tu proyecto<br>
-        4. Recarga esta página
+        3. Haz commit en <code>main</code> y espera 1–2 min a que se publique<br>
+        4. Recarga la página (Ctrl+F5 · Cmd+Shift+R · en móvil cierra y reabre)
       </div>
       <p style="margin-top:1rem;font-size:0.82rem;color:#64748b;text-align:center;">
         Consulta el <strong>README</strong> para instrucciones detalladas.
