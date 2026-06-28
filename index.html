@@ -135,13 +135,34 @@
         </button>
       </div>
 
-      <!-- Lista dinámica de comensales con sus bebidas -->
+      <!-- Lista de comensales -->
       <div class="comensal-list" id="lista-comensales">
         <p class="empty-msg">Aún no hay comensales. Añade el primero arriba.</p>
       </div>
     </section>
 
-    <!-- ══════════════ 2. COMIDA COMÚN ══════════════ -->
+    <!-- ══════════════ 2. BEBIDAS ══════════════ -->
+    <section class="card" id="seccion-bebidas">
+      <h2>
+        <span class="icon">🍷</span> Bebidas
+        <span class="badge-count" id="badge-bebidas">0</span>
+      </h2>
+      <p style="font-size:0.82rem;color:#64748b;margin-bottom:0.75rem;">
+        Asigna cada bebida a uno o varios comensales. Si la comparten, el coste se divide a partes iguales.
+      </p>
+
+      <!-- Formulario (se genera dinámicamente con la lista de comensales) -->
+      <div id="bebidas-form-container" style="margin-bottom:1rem;">
+        <p class="empty-msg">Añade comensales primero para registrar bebidas.</p>
+      </div>
+
+      <!-- Lista de bebidas -->
+      <div id="lista-bebidas">
+        <p class="empty-msg">Sin bebidas registradas.</p>
+      </div>
+    </section>
+
+    <!-- ══════════════ 3. COMIDA COMÚN ══════════════ -->
     <section class="card" id="seccion-comida">
       <h2>
         <span class="icon">🥘</span> Comida común
@@ -184,7 +205,7 @@
       </div>
     </section>
 
-    <!-- ══════════════ 3. TOTAL DE LA CUENTA ══════════════ -->
+    <!-- ══════════════ 4. TOTAL DE LA CUENTA ══════════════ -->
     <section class="card">
       <h2><span class="icon">🧾</span> Total de la cuenta</h2>
       <p style="font-size:0.82rem;color:#64748b;margin-bottom:0.75rem;">
@@ -204,7 +225,7 @@
       </div>
     </section>
 
-    <!-- ══════════════ 4. RESUMEN ══════════════ -->
+    <!-- ══════════════ 5. RESUMEN ══════════════ -->
     <section class="card" id="seccion-resumen">
       <h2><span class="icon">📊</span> Resumen del reparto</h2>
 

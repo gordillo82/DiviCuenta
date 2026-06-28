@@ -34,11 +34,11 @@ create table if not exists diners (
   created_at  timestamptz default now()
 );
 
--- Bebidas asociadas a un comensal
+-- Bebidas de la sesión (pueden ser de un solo comensal o compartidas)
 create table if not exists drinks (
   id          uuid primary key default gen_random_uuid(),
   session_id  uuid not null references sessions(id) on delete cascade,
-  diner_id    uuid not null references diners(id) on delete cascade,
+  diner_id    uuid references diners(id) on delete cascade,  -- nullable para bebidas compartidas
   product     text not null,
   unit_price  numeric(10,2) not null default 0,
   quantity    integer not null default 1
@@ -104,3 +104,36 @@ create index if not exists idx_diners_session        on diners(session_id);
 create index if not exists idx_drinks_session        on drinks(session_id);
 create index if not exists idx_drinks_diner          on drinks(diner_id);
 create index if not exists idx_shared_food_session   on shared_food_items(session_id);
+
+-- ============================================================
+-- MIGRACIÓN: Bebidas compartidas (Opción A – reparto igualitario)
+-- ============================================================
+-- Ejecuta este bloque en el SQL Editor de Supabase si ya tienes
+-- el schema anterior aplicado. Si partes de cero, aplica todo
+-- el archivo de una sola vez.
+
+-- La columna diner_id de drinks pasa a ser opcional (nullable)
+-- para poder crear bebidas asignadas a varios comensales a la vez.
+alter table drinks alter column diner_id drop not null;
+
+-- Tabla de relación N:M entre bebidas y comensales
+-- Cada fila indica que un comensal participa en una bebida.
+-- El coste de la bebida se divide a partes iguales entre todos
+-- sus participantes (Opción A).
+create table if not exists drink_participants (
+  id          uuid primary key default gen_random_uuid(),
+  drink_id    uuid not null references drinks(id) on delete cascade,
+  diner_id    uuid not null references diners(id) on delete cascade,
+  session_id  uuid not null references sessions(id) on delete cascade,
+  unique (drink_id, diner_id)
+);
+
+alter table drink_participants enable row level security;
+
+create policy "anon_drink_participants"
+  on drink_participants for all to anon
+  using (true) with check (true);
+
+create index if not exists idx_drink_participants_drink   on drink_participants(drink_id);
+create index if not exists idx_drink_participants_diner   on drink_participants(diner_id);
+create index if not exists idx_drink_participants_session on drink_participants(session_id);

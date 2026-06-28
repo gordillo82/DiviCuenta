@@ -600,3 +600,97 @@ input[type="number"]:focus {
     padding: 2rem 2rem 2.5rem;
   }
 }
+
+/* --- Bebidas compartidas ---------------------------------- */
+
+/* Selector de participantes ("¿Quién la tomó?") */
+.participantes-selector {
+  margin-top: 0.75rem;
+}
+
+.participantes-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-muted);
+  margin-bottom: 0.4rem;
+}
+
+.participantes-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.participante-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  background: #f1f5f9;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.participante-chip:has(input:checked) {
+  background: #dbeafe;
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.participante-chip input[type="checkbox"] {
+  width: 0.85rem;
+  height: 0.85rem;
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+/* Fila de bebida en la lista */
+.bebida-compartida-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.bebida-compartida-row:last-child {
+  border-bottom: none;
+}
+
+.bebida-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.bebida-nombre {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bebida-precio {
+  font-size: 0.82rem;
+  color: var(--color-muted);
+}
+
+.bebida-participantes {
+  font-size: 0.79rem;
+  color: var(--color-primary);
+}
+
+/* Error de validación inline */
+.field-error {
+  color: var(--color-danger);
+  font-size: 0.8rem;
+  margin-top: 0.3rem;
+}
