@@ -254,15 +254,14 @@ function actualizarResumen() {
 
   const r = calcularResumen();
 
-  document.getElementById('res-bebidas').textContent    = fmt(r.totalBebidas);
-  document.getElementById('res-comida').textContent     = fmt(r.totalComida);
-  document.getElementById('res-iva').textContent        = fmt(r.taxTotal);
-  document.getElementById('res-total-calc').textContent = fmt(r.totalCalculado);
+  document.getElementById('res-bebidas').textContent      = fmt(r.totalBebidas);
+  document.getElementById('res-comida').textContent       = fmt(r.totalComida);
+  document.getElementById('res-iva').textContent          = fmt(r.taxTotal);
+  document.getElementById('res-total-calc').textContent   = fmt(r.totalCalculado);
   document.getElementById('res-total-cuenta').textContent = fmt(r.totalCuenta);
 
-  const difEl        = document.getElementById('res-diferencia');
-  const difContenedor = document.getElementById('res-diferencia-bloque');
-  const difLabel     = document.getElementById('res-diferencia-label');
+  const difEl         = document.getElementById('res-diferencia');
+  const difLabel      = document.getElementById('res-diferencia-label');
 
   difEl.textContent = fmt(Math.abs(r.diferencia));
 
@@ -277,6 +276,20 @@ function actualizarResumen() {
     difLabel.textContent = r.diferencia > 0 ? '⚠️ FALTA' : '⚠️ SOBRA';
   }
 
+  const tbody = document.getElementById('tabla-cuerpo');
+  tbody.innerHTML = '';
+
+  r.totalesPorComensal.forEach(t => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="nombre-persona">${escapeHtml(t.comensal.nombre)}</td>
+      <td>${fmt(t.bebidas)}</td>
+      <td>${fmt(t.comida)}</td>
+      <td>${fmt(t.iva)}</td>
+      <td class="total-persona">${fmt(t.total)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
   // Mostrar u ocultar la columna IVA según si hay IVA ingresado
   const thIva = document.getElementById('th-iva');
   if (thIva) thIva.style.display = r.taxTotal > 0 ? '' : 'none';
