@@ -345,18 +345,19 @@ function actualizarResumen() {
   const thIva = document.getElementById('th-iva');
   if (thIva) thIva.style.display = r.taxTotal > 0 ? '' : 'none';
 
-  const tbody = document.getElementById('tabla-cuerpo');
-  tbody.innerHTML = '';
-  r.totalesPorComensal.forEach(t => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="nombre-persona">${escapeHtml(t.comensal.nombre)}</td>
-      <td>${fmt(t.bebidas)}</td>
-      <td>${fmt(t.comida)}</td>
-      <td style="display:${r.taxTotal > 0 ? '' : 'none'}">${fmt(t.iva)}</td>
-      <td class="total-persona">${fmt(t.total)}</td>`;
-    tbody.appendChild(tr);
-  });
+ const tbody = document.getElementById('tabla-cuerpo');
+tbody.innerHTML = '';
+r.totalesPorComensal.forEach(t => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="nombre-persona">${escapeHtml(t.comensal.nombre)}</td>
+    <td>${fmt(t.bebidas)}</td>
+    <td>${fmt(t.comida)}</td>
+    <td>${fmt(t.subtotal)}</td>
+    <td style="display:${r.taxTotal > 0 ? '' : 'none'}">${fmt(t.iva)}</td>
+    <td class="total-persona">${fmt(t.total)}</td>`;
+  tbody.appendChild(tr);
+});
 }
 
 /** Formulario global para añadir bebida con selección de participantes. */
