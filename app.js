@@ -276,20 +276,6 @@ function actualizarResumen() {
     difLabel.textContent = r.diferencia > 0 ? '⚠️ FALTA' : '⚠️ SOBRA';
   }
 
-  const tbody = document.getElementById('tabla-cuerpo');
-  tbody.innerHTML = '';
-
-  r.totalesPorComensal.forEach(t => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="nombre-persona">${escapeHtml(t.comensal.nombre)}</td>
-      <td>${fmt(t.bebidas)}</td>
-      <td>${fmt(t.comida)}</td>
-      <td>${fmt(t.iva)}</td>
-      <td class="total-persona">${fmt(t.total)}</td>`;
-    tbody.appendChild(tr);
-  });
-}
   // Mostrar u ocultar la columna IVA según si hay IVA ingresado
   const thIva = document.getElementById('th-iva');
   if (thIva) thIva.style.display = r.taxTotal > 0 ? '' : 'none';
