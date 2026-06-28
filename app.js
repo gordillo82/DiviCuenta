@@ -735,7 +735,11 @@ async function syncTotalCuenta(valor) {
   actualizarResumen();
 
   const { error } = await db.from('bills').upsert(
-    { session_id: sessionId, total_amount: total },
+    {
+      session_id: sessionId,
+      total_amount: total,
+      tax_total: round2(taxTotalIngresado || 0),
+    },
     { onConflict: 'session_id' }
   );
   if (error) console.error('Error sincronizando total:', error);
@@ -748,7 +752,11 @@ async function syncTaxTotal(valor) {
   actualizarResumen();
 
   const { error } = await db.from('bills').upsert(
-    { session_id: sessionId, tax_total: tax },
+    {
+      session_id: sessionId,
+      total_amount: round2(totalCuentaIngresado || 0),
+      tax_total: tax,
+    },
     { onConflict: 'session_id' }
   );
   if (error) console.error('Error sincronizando IVA:', error);
