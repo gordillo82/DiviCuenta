@@ -42,11 +42,19 @@ body {
 header {
   background: var(--color-primary);
   color: #fff;
-  padding: 1rem 1.25rem 0.75rem;
+  padding: 0.75rem 1.25rem;
   position: sticky;
   top: 0;
   z-index: 10;
   box-shadow: 0 2px 6px rgba(0,0,0,.2);
+}
+
+.header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 header h1 {
@@ -61,6 +69,91 @@ header p.tagline {
   margin-top: 0.1rem;
 }
 
+/* --- Session info (header right side) ------------------- */
+.session-info {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.session-code-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(255,255,255,.15);
+  border-radius: var(--radius);
+  padding: 0.3rem 0.6rem;
+}
+
+.session-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  opacity: 0.8;
+  letter-spacing: 0.08em;
+}
+
+.session-code {
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.btn-copy {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.1rem 0.2rem;
+  border-radius: 4px;
+  transition: background 0.15s;
+  color: inherit;
+}
+.btn-copy:hover {
+  background: rgba(255,255,255,.2);
+}
+
+.btn-leave {
+  background: rgba(255,255,255,.15);
+  border: 1px solid rgba(255,255,255,.35);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.btn-leave:hover {
+  background: rgba(255,255,255,.25);
+}
+
+/* --- Connection status ---------------------------------- */
+.connection-status {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  opacity: 0.9;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.online     { background: #4ade80; }
+.status-dot.connecting { background: #fbbf24; animation: pulse 1.2s infinite; }
+.status-dot.offline    { background: #f87171; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
 /* --- Main layout ----------------------------------------- */
 main {
   max-width: 680px;
@@ -69,6 +162,109 @@ main {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+/* --- Lobby ----------------------------------------------- */
+#lobby {
+  min-height: calc(100vh - 80px);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 1.5rem 0.75rem 2rem;
+  background: var(--color-bg);
+}
+
+.lobby-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0,0,0,.1);
+  padding: 1.75rem 1.5rem 2rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.lobby-logo {
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 0.25rem;
+}
+
+.lobby-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  text-align: center;
+  margin-bottom: 0.25rem;
+}
+
+.lobby-subtitle {
+  font-size: 0.88rem;
+  color: var(--color-muted);
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.lobby-error {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  color: var(--color-danger);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.lobby-section {
+  margin-bottom: 0.5rem;
+}
+
+.lobby-section h3 {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.65rem;
+}
+
+.lobby-or {
+  text-align: center;
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  margin: 1rem 0;
+}
+
+.btn-block {
+  width: 100%;
+  justify-content: center;
+  margin-top: 0.75rem;
+}
+
+/* Código de sesión en lobby */
+.input-code {
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* --- Presencia ------------------------------------------ */
+.presencia-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.presencia-chip {
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #15803d;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 99px;
+  padding: 0.2rem 0.65rem;
 }
 
 /* --- Card ------------------------------------------------ */
@@ -394,5 +590,13 @@ input[type="number"]:focus {
 
   header h1 {
     font-size: 1.5rem;
+  }
+
+  #lobby {
+    padding-top: 2.5rem;
+  }
+
+  .lobby-card {
+    padding: 2rem 2rem 2.5rem;
   }
 }

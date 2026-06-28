@@ -12,11 +12,102 @@
 
   <!-- ══════════════ CABECERA ══════════════ -->
   <header>
-    <h1>🍽 DiviCuenta</h1>
-    <p class="tagline">Divide la cuenta de forma justa entre comensales</p>
+    <div class="header-top">
+      <div>
+        <h1>🍽 DiviCuenta</h1>
+        <p class="tagline">Divide la cuenta de forma justa entre comensales</p>
+      </div>
+      <!-- Info de sesión (visible solo cuando hay sesión activa) -->
+      <div id="session-info" style="display:none" class="session-info">
+        <div class="session-code-wrap">
+          <span class="session-label">SESIÓN</span>
+          <strong class="session-code" id="session-code-display">------</strong>
+          <button class="btn-copy" onclick="copiarCodigo()" title="Copiar código">📋</button>
+        </div>
+        <div class="connection-status" id="connection-status">
+          <span class="status-dot connecting"></span>
+          <span class="status-text">Conectando…</span>
+        </div>
+        <button class="btn-leave" onclick="salirSesion()" title="Salir de la sesión">✕ Salir</button>
+      </div>
+    </div>
   </header>
 
-  <main>
+  <!-- ══════════════ LOBBY (pantalla inicial) ══════════════ -->
+  <div id="lobby" style="display:none">
+    <div class="lobby-card">
+      <div class="lobby-logo">🍽</div>
+      <h2 class="lobby-title">DiviCuenta</h2>
+      <p class="lobby-subtitle">Divide la cuenta entre amigos en tiempo real</p>
+
+      <!-- Mensaje de error -->
+      <div class="lobby-error" id="lobby-error" style="display:none"></div>
+
+      <!-- Crear sesión -->
+      <div class="lobby-section">
+        <h3>Nueva sesión</h3>
+        <div class="field">
+          <label for="nickname-crear">Tu nombre</label>
+          <input
+            type="text"
+            id="nickname-crear"
+            placeholder="Ej: Ana, Luis…"
+            maxlength="30"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+          >
+        </div>
+        <button class="btn btn-primary btn-block" onclick="accionCrearSesion()">
+          ✨ Crear nueva sesión
+        </button>
+      </div>
+
+      <div class="lobby-or">— o —</div>
+
+      <!-- Unirse a sesión existente -->
+      <div class="lobby-section">
+        <h3>Unirse a sesión</h3>
+        <div class="field">
+          <label for="codigo-unirse">Código de sesión</label>
+          <input
+            type="text"
+            id="codigo-unirse"
+            placeholder="Ej: ABC123"
+            maxlength="6"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            class="input-code"
+          >
+        </div>
+        <div class="field">
+          <label for="nickname-unirse">Tu nombre</label>
+          <input
+            type="text"
+            id="nickname-unirse"
+            placeholder="Ej: Ana, Luis…"
+            maxlength="30"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+          >
+        </div>
+        <button class="btn btn-primary btn-block" onclick="accionUnirseASesion()">
+          🔗 Unirse a sesión
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ APP (visible cuando hay sesión) ══════════════ -->
+  <main id="app" style="display:none">
+
+    <!-- ── Presencia (usuarios conectados) ── -->
+    <section class="card" id="seccion-presencia" style="display:none">
+      <h2><span class="icon">🟢</span> Conectados ahora</h2>
+      <div id="lista-presencia" class="presencia-list"></div>
+    </section>
 
     <!-- ══════════════ 1. COMENSALES ══════════════ -->
     <section class="card" id="seccion-comensales">
@@ -159,6 +250,10 @@
 
   </main>
 
+  <!-- Supabase JS v2 (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <!-- Credenciales del proyecto (config.js NO se sube al repo) -->
+  <script src="config.js" onerror="window.__configMissing=true"></script>
   <script src="app.js"></script>
 </body>
 </html>

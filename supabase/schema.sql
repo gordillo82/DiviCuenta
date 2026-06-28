@@ -1,0 +1,106 @@
+-- ============================================================
+-- DiviCuenta – Supabase Schema
+-- ============================================================
+-- Ejecuta este archivo en el Editor SQL de tu proyecto Supabase:
+--   https://app.supabase.com → SQL Editor → New query → pega y ejecuta
+
+-- ─── Extensiones ─────────────────────────────────────────
+create extension if not exists "pgcrypto";
+
+-- ─── Tablas ───────────────────────────────────────────────
+
+-- Sesiones de cuenta (cada mesa/grupo tiene una)
+create table if not exists sessions (
+  id          uuid primary key default gen_random_uuid(),
+  code        text unique not null,
+  created_at  timestamptz default now(),
+  updated_at  timestamptz default now()
+);
+
+-- Participantes registrados en la sesión
+create table if not exists participants (
+  id            uuid primary key default gen_random_uuid(),
+  session_id    uuid not null references sessions(id) on delete cascade,
+  nickname      text not null,
+  connected_at  timestamptz default now(),
+  last_seen_at  timestamptz default now()
+);
+
+-- Comensales (personas que van a pagar)
+create table if not exists diners (
+  id          uuid primary key default gen_random_uuid(),
+  session_id  uuid not null references sessions(id) on delete cascade,
+  name        text not null,
+  created_at  timestamptz default now()
+);
+
+-- Bebidas asociadas a un comensal
+create table if not exists drinks (
+  id          uuid primary key default gen_random_uuid(),
+  session_id  uuid not null references sessions(id) on delete cascade,
+  diner_id    uuid not null references diners(id) on delete cascade,
+  product     text not null,
+  unit_price  numeric(10,2) not null default 0,
+  quantity    integer not null default 1
+);
+
+-- Comida común (se reparte a partes iguales)
+create table if not exists shared_food_items (
+  id          uuid primary key default gen_random_uuid(),
+  session_id  uuid not null references sessions(id) on delete cascade,
+  concept     text not null,
+  price       numeric(10,2) not null default 0
+);
+
+-- Total del ticket (uno por sesión)
+create table if not exists bills (
+  session_id    uuid primary key references sessions(id) on delete cascade,
+  total_amount  numeric(10,2) not null default 0
+);
+
+-- ─── Row Level Security ───────────────────────────────────
+-- El modelo de seguridad se basa en el código de sesión de 6 caracteres:
+-- solo quien conoce el código puede encontrar el session_id UUID.
+-- Los UUIDs son criptográficamente difíciles de adivinar por fuerza bruta.
+
+alter table sessions          enable row level security;
+alter table participants      enable row level security;
+alter table diners            enable row level security;
+alter table drinks            enable row level security;
+alter table shared_food_items enable row level security;
+alter table bills             enable row level security;
+
+-- Políticas: acceso anon permitido (protección por opacidad del UUID)
+-- Para entornos de producción con mayor exigencia de seguridad,
+-- considera añadir autenticación real (ver README).
+
+create policy "anon_sessions"
+  on sessions for all to anon
+  using (true) with check (true);
+
+create policy "anon_participants"
+  on participants for all to anon
+  using (true) with check (true);
+
+create policy "anon_diners"
+  on diners for all to anon
+  using (true) with check (true);
+
+create policy "anon_drinks"
+  on drinks for all to anon
+  using (true) with check (true);
+
+create policy "anon_shared_food"
+  on shared_food_items for all to anon
+  using (true) with check (true);
+
+create policy "anon_bills"
+  on bills for all to anon
+  using (true) with check (true);
+
+-- ─── Índices para rendimiento ─────────────────────────────
+create index if not exists idx_participants_session  on participants(session_id);
+create index if not exists idx_diners_session        on diners(session_id);
+create index if not exists idx_drinks_session        on drinks(session_id);
+create index if not exists idx_drinks_diner          on drinks(diner_id);
+create index if not exists idx_shared_food_session   on shared_food_items(session_id);
