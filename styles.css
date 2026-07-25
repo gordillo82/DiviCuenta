@@ -308,7 +308,9 @@ label {
 }
 
 input[type="text"],
-input[type="number"] {
+input[type="number"],
+input[type="file"],
+select {
   width: 100%;
   padding: 0.55rem 0.7rem;
   border: 1px solid var(--color-border);
@@ -320,7 +322,9 @@ input[type="number"] {
 }
 
 input[type="text"]:focus,
-input[type="number"]:focus {
+input[type="number"]:focus,
+input[type="file"]:focus,
+select:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(37,99,235,.15);
@@ -693,4 +697,48 @@ input[type="number"]:focus {
   color: var(--color-danger);
   font-size: 0.8rem;
   margin-top: 0.3rem;
+}
+
+/* --- OCR ticket --------------------------------------------- */
+.ocr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.ocr-status {
+  color: var(--color-primary);
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.ocr-error {
+  color: var(--color-danger);
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.ticket-table-wrap {
+  overflow-x: auto;
+}
+
+.tabla-ticket {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.tabla-ticket th,
+.tabla-ticket td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.4rem 0.3rem;
+  text-align: left;
+}
+
+.tabla-ticket th {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
