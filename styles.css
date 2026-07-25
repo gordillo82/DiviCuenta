@@ -742,3 +742,77 @@ select:focus {
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+
+/* --- Bulk delete button in section header ---------------- */
+.bulk-delete-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Make section h2 flex so the button aligns to the right */
+.card h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+/* --- Comida con participantes por ítem ------------------- */
+.comida-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+.comida-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.comida-info-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.comida-concepto {
+  flex: 1;
+  min-width: 0;
+}
+
+.comida-precio {
+  white-space: nowrap;
+}
+
+.comida-participantes {
+  margin-top: 0.4rem;
+}
+
+.participante-chip-sm {
+  font-size: 0.77rem;
+  padding: 0.22rem 0.5rem;
+}
+
+/* Quick "Todos / Ninguno" actions per food item */
+.comida-quickactions {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.btn-quickaction {
+  background: none;
+  border: none;
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.btn-quickaction:hover {
+  color: var(--color-primary-hover);
+}

@@ -194,19 +194,34 @@ function calcularResumenDetallado({
 
   const totalBebidasCents = Array.from(bebidasPorComensalCents.values())
     .reduce((acc, cents) => acc + cents, 0);
-  const totalComidaCents = toCents(
-    listaComidaComun.reduce((acc, item) => acc + (Number(item.precio) || 0), 0)
-  );
   const taxCents = toCents(taxTotal);
 
-  const comidaPorComensalCents = repartirCents(
-    totalComidaCents,
-    listaComensales.map(() => 1)
-  );
+  // Comida: repartir cada ítem entre sus participantes (o todos si no hay ninguno)
+  const comidaPorComensalCents = new Map(listaComensales.map(c => [c.id, 0]));
 
-  const subtotalesPorComensalCents = listaComensales.map((c, i) => {
+  listaComidaComun.forEach(item => {
+    // null/undefined → dato previo sin participantes → se reparte entre todos (compatibilidad)
+    // []            → sin participantes elegidos explícitamente → sin asignar (0)
+    const participantesItem = item.participantes == null
+      ? listaComensales.map(c => c.id)
+      : item.participantes.filter(pid => comidaPorComensalCents.has(pid));
+
+    if (participantesItem.length === 0) return;
+
+    const itemCents = toCents(Number(item.precio) || 0);
+    const repartoCents = repartirCents(itemCents, participantesItem.map(() => 1));
+
+    participantesItem.forEach((pid, i) => {
+      comidaPorComensalCents.set(pid, comidaPorComensalCents.get(pid) + repartoCents[i]);
+    });
+  });
+
+  const totalComidaCents = Array.from(comidaPorComensalCents.values())
+    .reduce((acc, cents) => acc + cents, 0);
+
+  const subtotalesPorComensalCents = listaComensales.map(c => {
     const bebidasCents = bebidasPorComensalCents.get(c.id) || 0;
-    const comidaCents = comidaPorComensalCents[i] || 0;
+    const comidaCents = comidaPorComensalCents.get(c.id) || 0;
     return {
       comensal: c,
       bebidasCents,
@@ -238,7 +253,7 @@ function calcularResumenDetallado({
     totalBebidas: fromCents(totalBebidasCents),
     totalComida: fromCents(totalComidaCents),
     taxTotal: fromCents(taxCents),
-    repartoPorPersona: listaComensales.length > 0 ? fromCents(comidaPorComensalCents[0] || 0) : 0,
+    repartoPorPersona: listaComensales.length > 0 ? fromCents(comidaPorComensalCents.get(listaComensales[0].id) || 0) : 0,
     totalesPorComensal,
     totalCalculado,
     totalCuenta: totalCuentaNormalizado,
@@ -302,12 +317,43 @@ function renderComidaComun() {
 
   contenedor.innerHTML = '';
   comidaComun.forEach(item => {
+    // Participantes efectivos para mostrar en los checkboxes:
+    // null/undefined → mostrar todos marcados (dato previo sin participantes)
+    // [] → ninguno marcado (usuario eligió explícitamente "ninguno")
+    const participantesActivos = item.participantes == null
+      ? comensales.map(c => c.id)
+      : item.participantes;
+
+    const checkboxesHtml = comensales.map(c => `
+      <label class="participante-chip participante-chip-sm">
+        <input type="checkbox"
+               id="food-part-${item.id}-${c.id}"
+               value="${c.id}"
+               ${participantesActivos.includes(c.id) ? 'checked' : ''}
+               onchange="actualizarParticipantesComida('${item.id}')">
+        ${escapeHtml(c.nombre)}
+      </label>`).join('');
+
     const fila = document.createElement('div');
     fila.className = 'comida-row';
+    fila.dataset.foodId = item.id;
     fila.innerHTML = `
-      <span>${escapeHtml(item.concepto)}</span>
-      <span style="font-weight:600; white-space:nowrap;">${fmt(item.precio)}</span>
-      <button class="btn btn-ghost btn-sm" onclick="eliminarComida('${item.id}')" title="Eliminar concepto">✕</button>`;
+      <div class="comida-info">
+        <div class="comida-info-top">
+          <span class="comida-concepto">${escapeHtml(item.concepto)}</span>
+          <span class="comida-precio" style="font-weight:600; white-space:nowrap;">${fmt(item.precio)}</span>
+          <button class="btn btn-ghost btn-sm" onclick="eliminarComida('${item.id}')" title="Eliminar concepto">✕</button>
+        </div>
+        ${comensales.length > 0 ? `
+        <div class="comida-participantes">
+          <span class="participantes-label">¿Quién come?</span>
+          <div class="participantes-chips">${checkboxesHtml}</div>
+          <div class="comida-quickactions">
+            <button class="btn-quickaction" onclick="todosComida('${item.id}')">Todos</button>
+            <button class="btn-quickaction" onclick="ningunoComida('${item.id}')">Ninguno</button>
+          </div>
+        </div>` : ''}
+      </div>`;
     contenedor.appendChild(fila);
   });
 
@@ -750,17 +796,19 @@ function setConnectionStatus(status) {
 async function fetchAllData() {
   if (!db || !sessionId) return;
 
-  const [dinersRes, drinksRes, drinkPartsRes, foodRes, billRes] = await Promise.all([
+  const [dinersRes, drinksRes, drinkPartsRes, foodRes, foodPartsRes, billRes] = await Promise.all([
     db.from('diners').select('*').eq('session_id', sessionId).order('created_at'),
     db.from('drinks').select('*').eq('session_id', sessionId).order('created_at'),
     db.from('drink_participants').select('*').eq('session_id', sessionId),
     db.from('shared_food_items').select('*').eq('session_id', sessionId).order('created_at'),
+    db.from('food_participants').select('*').eq('session_id', sessionId),
     db.from('bills').select('*').eq('session_id', sessionId).maybeSingle(),
   ]);
 
   const diners    = dinersRes.data    || [];
   const drinks    = drinksRes.data    || [];
   const drinkParts = drinkPartsRes.data || [];
+  const foodParts  = foodPartsRes.data  || [];
 
   comensales = diners.map(d => ({ id: d.id, nombre: d.name }));
 
@@ -778,11 +826,17 @@ async function fetchAllData() {
     };
   });
 
-  comidaComun = (foodRes.data || []).map(f => ({
-    id:       f.id,
-    concepto: f.concept,
-    precio:   parseFloat(f.price),
-  }));
+  comidaComun = (foodRes.data || []).map(f => {
+    const parts = foodParts.filter(p => p.food_id === f.id).map(p => p.diner_id);
+    // Compatibilidad hacia atrás: si no hay participantes en food_participants,
+    // se consideran todos los comensales (comportamiento original)
+    return {
+      id:            f.id,
+      concepto:      f.concept,
+      precio:        parseFloat(f.price),
+      participantes: parts,
+    };
+  });
 
   const billTotal = billRes.data ? parseFloat(billRes.data.total_amount) : 0;
   const taxTotal  = billRes.data ? parseFloat(billRes.data.tax_total || 0) : 0;
@@ -826,6 +880,10 @@ function setupRealtime() {
     }, fetchAllData)
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'shared_food_items',
+      filter: `session_id=eq.${sessionId}`,
+    }, fetchAllData)
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'food_participants',
       filter: `session_id=eq.${sessionId}`,
     }, fetchAllData)
     .on('postgres_changes', {
@@ -967,12 +1025,23 @@ async function añadirComida() {
   }
   limpiarValidacion(inputPrecio);
 
-  const { error } = await db.from('shared_food_items').insert({
+  const { data: foodItem, error } = await db.from('shared_food_items').insert({
     session_id: sessionId,
     concept:    concepto,
     price:      round2(precio),
-  });
+  }).select().single();
   if (error) { console.error('Error añadiendo comida:', error); return; }
+
+  // Por defecto todos los comensales participan en el nuevo plato
+  if (comensales.length > 0) {
+    const participantRows = comensales.map(c => ({
+      food_id:    foodItem.id,
+      diner_id:   c.id,
+      session_id: sessionId,
+    }));
+    const { error: partError } = await db.from('food_participants').insert(participantRows);
+    if (partError) console.error('Error añadiendo participantes de comida:', partError);
+  }
 
   inputConcepto.value = '';
   inputPrecio.value   = '';
@@ -982,6 +1051,69 @@ async function añadirComida() {
 async function eliminarComida(id) {
   const { error } = await db.from('shared_food_items').delete().eq('id', id);
   if (error) { console.error('Error eliminando comida:', error); return; }
+  await fetchAllData();
+}
+
+async function actualizarParticipantesComida(foodId) {
+  if (!db || !sessionId) return;
+
+  const participantes = comensales
+    .filter(c => {
+      const cb = document.getElementById(`food-part-${foodId}-${c.id}`);
+      return cb && cb.checked;
+    })
+    .map(c => c.id);
+
+  // Reemplazar toda la lista de participantes para este plato
+  await db.from('food_participants').delete().eq('food_id', foodId);
+
+  if (participantes.length > 0) {
+    const rows = participantes.map(dinerId => ({
+      food_id:    foodId,
+      diner_id:   dinerId,
+      session_id: sessionId,
+    }));
+    const { error } = await db.from('food_participants').insert(rows);
+    if (error) { console.error('Error actualizando participantes de comida:', error); return; }
+  }
+
+  // Actualizar estado local y recalcular sin fetchAllData completo
+  const item = comidaComun.find(i => i.id === foodId);
+  if (item) item.participantes = participantes;
+  actualizarResumen();
+}
+
+function todosComida(foodId) {
+  comensales.forEach(c => {
+    const cb = document.getElementById(`food-part-${foodId}-${c.id}`);
+    if (cb) cb.checked = true;
+  });
+  actualizarParticipantesComida(foodId);
+}
+
+function ningunoComida(foodId) {
+  comensales.forEach(c => {
+    const cb = document.getElementById(`food-part-${foodId}-${c.id}`);
+    if (cb) cb.checked = false;
+  });
+  actualizarParticipantesComida(foodId);
+}
+
+// ─── Borrado masivo ───────────────────────────────────────
+
+async function borrarTodasBebidas() {
+  if (!db || !sessionId) return;
+  if (!confirm('¿Borrar todas las bebidas? Esta acción no se puede deshacer.')) return;
+  const { error } = await db.from('drinks').delete().eq('session_id', sessionId);
+  if (error) { console.error('Error borrando bebidas:', error); return; }
+  await fetchAllData();
+}
+
+async function borrarTodasComidas() {
+  if (!db || !sessionId) return;
+  if (!confirm('¿Borrar todos los platos de comida? Esta acción no se puede deshacer.')) return;
+  const { error } = await db.from('shared_food_items').delete().eq('session_id', sessionId);
+  if (error) { console.error('Error borrando comidas:', error); return; }
   await fetchAllData();
 }
 

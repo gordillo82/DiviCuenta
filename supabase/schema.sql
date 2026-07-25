@@ -146,3 +146,28 @@ create policy "anon_drink_participants"
 create index if not exists idx_drink_participants_drink   on drink_participants(drink_id);
 create index if not exists idx_drink_participants_diner   on drink_participants(diner_id);
 create index if not exists idx_drink_participants_session on drink_participants(session_id);
+
+-- ============================================================
+-- MIGRACIÓN: Participantes por ítem de comida
+-- ============================================================
+-- Ejecuta este bloque si ya tienes el schema anterior aplicado.
+-- Permite elegir qué comensales participan en cada plato de comida.
+-- Si un ítem no tiene filas en esta tabla, se reparte entre todos.
+
+create table if not exists food_participants (
+  id          uuid primary key default gen_random_uuid(),
+  food_id     uuid not null references shared_food_items(id) on delete cascade,
+  diner_id    uuid not null references diners(id) on delete cascade,
+  session_id  uuid not null references sessions(id) on delete cascade,
+  unique (food_id, diner_id)
+);
+
+alter table food_participants enable row level security;
+
+create policy "anon_food_participants"
+  on food_participants for all to anon
+  using (true) with check (true);
+
+create index if not exists idx_food_participants_food    on food_participants(food_id);
+create index if not exists idx_food_participants_diner   on food_participants(diner_id);
+create index if not exists idx_food_participants_session on food_participants(session_id);

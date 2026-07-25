@@ -175,6 +175,9 @@
       <h2>
         <span class="icon">🍷</span> Bebidas
         <span class="badge-count" id="badge-bebidas">0</span>
+        <button class="btn btn-danger btn-sm bulk-delete-btn" onclick="borrarTodasBebidas()" title="Borrar todas las bebidas">
+          🗑 Borrar todas
+        </button>
       </h2>
       <p style="font-size:0.82rem;color:#64748b;margin-bottom:0.75rem;">
         Asigna cada bebida a uno o varios comensales. Si la comparten, el coste se divide a partes iguales.
@@ -196,9 +199,12 @@
       <h2>
         <span class="icon">🥘</span> Comida común
         <span class="badge-count" id="badge-comida">0</span>
+        <button class="btn btn-danger btn-sm bulk-delete-btn" onclick="borrarTodasComidas()" title="Borrar todos los platos">
+          🗑 Borrar todos
+        </button>
       </h2>
       <p style="font-size:0.82rem;color:#64748b;margin-bottom:0.75rem;">
-        Los platos de comida se repartirán a partes iguales entre todos los comensales.
+        Cada plato se reparte entre los comensales que hayas marcado. Por defecto participan todos.
       </p>
 
       <!-- Añadir concepto de comida -->
