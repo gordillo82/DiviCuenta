@@ -77,6 +77,8 @@ let bebidas    = [];   // [{id, producto, precioUnitario, cantidad, participante
 let comidaComun = [];  // [{id, concepto, precio}]
 let totalCuentaIngresado = 0;
 let taxTotalIngresado    = 0;  // IVA total del ticket
+let ticketItemsDetectados = []; // [{name, price, category}]
+let ocrEnProgreso = false;
 
 // ─── Helpers de formato ───────────────────────────────────
 function fmt(n) {
@@ -114,6 +116,11 @@ function invalido(input, mensaje) {
 
 function limpiarValidacion(input) {
   input.setCustomValidity('');
+}
+
+function getTicketUtils() {
+  if (typeof window === 'undefined' || !window.TicketUtils) return null;
+  return window.TicketUtils;
 }
 
 // ─── Cálculos ─────────────────────────────────────────────
@@ -305,6 +312,257 @@ function renderComidaComun() {
   });
 
   actualizarResumen();
+}
+
+function setOcrUIState({ status = '', error = '', processing = false } = {}) {
+  ocrEnProgreso = processing;
+
+  const statusEl = document.getElementById('ticket-ocr-status');
+  const errorEl = document.getElementById('ticket-ocr-error');
+  const btnOcr = document.getElementById('btn-ticket-ocr');
+  const btnApply = document.getElementById('btn-ticket-apply');
+  const btnReclassify = document.getElementById('btn-ticket-reclassify');
+  const fileInput = document.getElementById('ticket-image-input');
+
+  if (statusEl) {
+    statusEl.textContent = status;
+    statusEl.style.display = status ? 'block' : 'none';
+  }
+  if (errorEl) {
+    errorEl.textContent = error;
+    errorEl.style.display = error ? 'block' : 'none';
+  }
+
+  [btnOcr, btnApply, btnReclassify, fileInput].forEach(el => {
+    if (el) el.disabled = processing;
+  });
+}
+
+function renderTicketItems() {
+  const container = document.getElementById('ticket-items-container');
+  if (!container) return;
+
+  if (ticketItemsDetectados.length === 0) {
+    container.innerHTML = '<p class="empty-msg">Todavía no se han detectado ítems del ticket.</p>';
+    return;
+  }
+
+  const rows = ticketItemsDetectados.map((item, index) => `
+    <tr>
+      <td>
+        <input type="text" value="${escapeHtml(item.name)}"
+               onchange="actualizarNombreItemTicket(${index}, this.value)">
+      </td>
+      <td>
+        <input type="number" min="0" step="0.01" value="${item.price}"
+               onchange="actualizarPrecioItemTicket(${index}, this.value)">
+      </td>
+      <td>
+        <select onchange="actualizarCategoriaItemTicket(${index}, this.value)">
+          <option value="bebida" ${item.category === 'bebida' ? 'selected' : ''}>bebida</option>
+          <option value="comida" ${item.category === 'comida' ? 'selected' : ''}>comida</option>
+        </select>
+      </td>
+    </tr>
+  `).join('');
+
+  container.innerHTML = `
+    <div class="ticket-table-wrap">
+      <table class="tabla-ticket">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Precio (€)</th>
+            <th>Categoría</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+async function procesarImagenTicket() {
+  if (ocrEnProgreso) return;
+
+  const fileInput = document.getElementById('ticket-image-input');
+  const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+  if (!file) {
+    setOcrUIState({ error: 'Selecciona una imagen del ticket antes de procesar.' });
+    return;
+  }
+
+  if (typeof window === 'undefined' || !window.Tesseract) {
+    setOcrUIState({ error: 'No se pudo cargar el motor OCR. Recarga la página e inténtalo de nuevo.' });
+    return;
+  }
+
+  const ticketUtils = getTicketUtils();
+  if (!ticketUtils) {
+    setOcrUIState({ error: 'No se pudieron cargar las utilidades del ticket.' });
+    return;
+  }
+
+  try {
+    setOcrUIState({ processing: true, status: 'Procesando imagen…' });
+    const result = await window.Tesseract.recognize(file, 'spa', {
+      logger: m => {
+        if (m.status === 'recognizing text' && typeof m.progress === 'number') {
+          const pct = Math.round(m.progress * 100);
+          setOcrUIState({ processing: true, status: `Procesando imagen… ${pct}%` });
+        }
+      },
+    });
+
+    const rawText = result && result.data ? result.data.text : '';
+    const parsed = ticketUtils.parseTicketLines(rawText).map(item => ({
+      name: item.name,
+      price: round2(item.price),
+      category: ticketUtils.classifyItem(item.name),
+    }));
+
+    ticketItemsDetectados = parsed;
+    renderTicketItems();
+
+    if (parsed.length === 0) {
+      setOcrUIState({
+        status: 'OCR completado.',
+        error: 'No se detectaron líneas con formato producto + precio. Revisa la imagen o corrige manualmente.',
+      });
+      return;
+    }
+
+    setOcrUIState({
+      status: `OCR completado. ${parsed.length} ítems detectados y listos para revisar.`,
+    });
+  } catch (error) {
+    console.error('Error procesando OCR:', error);
+    setOcrUIState({
+      error: 'No se pudo procesar la imagen. Prueba con una foto más nítida y bien iluminada.',
+    });
+  } finally {
+    if (!ocrEnProgreso) return;
+    setOcrUIState({
+      status: document.getElementById('ticket-ocr-status')?.textContent || '',
+      error: document.getElementById('ticket-ocr-error')?.textContent || '',
+      processing: false,
+    });
+  }
+}
+
+function actualizarNombreItemTicket(index, value) {
+  const item = ticketItemsDetectados[index];
+  if (!item) return;
+  item.name = String(value || '').trim();
+}
+
+function actualizarPrecioItemTicket(index, value) {
+  const item = ticketItemsDetectados[index];
+  if (!item) return;
+  const parsed = round2(parseFloat(value));
+  item.price = Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function actualizarCategoriaItemTicket(index, value) {
+  const item = ticketItemsDetectados[index];
+  if (!item) return;
+  item.category = value === 'bebida' ? 'bebida' : 'comida';
+}
+
+function recalcularCategoriasTicket() {
+  const ticketUtils = getTicketUtils();
+  if (!ticketUtils || ticketItemsDetectados.length === 0) return;
+
+  ticketItemsDetectados = ticketItemsDetectados.map(item => ({
+    ...item,
+    category: ticketUtils.classifyItem(item.name),
+  }));
+  renderTicketItems();
+  setOcrUIState({ status: 'Categorías recalculadas usando reglas locales.' });
+}
+
+async function aplicarItemsTicketAlReparto() {
+  if (ocrEnProgreso) return;
+  if (!db || !sessionId) return;
+
+  const itemsValidos = ticketItemsDetectados
+    .map(item => ({
+      name: String(item.name || '').trim(),
+      price: round2(parseFloat(item.price)),
+      category: item.category === 'bebida' ? 'bebida' : 'comida',
+    }))
+    .filter(item => item.name && !Number.isNaN(item.price) && item.price >= 0);
+
+  if (itemsValidos.length === 0) {
+    setOcrUIState({ error: 'No hay ítems válidos para añadir al reparto.' });
+    return;
+  }
+
+  const bebidasDetectadas = itemsValidos.filter(i => i.category === 'bebida');
+  const comidasDetectadas = itemsValidos.filter(i => i.category === 'comida');
+
+  if (bebidasDetectadas.length > 0 && comensales.length === 0) {
+    setOcrUIState({ error: 'Añade al menos un comensal antes de importar bebidas detectadas.' });
+    return;
+  }
+
+  try {
+    setOcrUIState({ processing: true, status: 'Añadiendo ítems detectados al reparto…' });
+
+    if (comidasDetectadas.length > 0) {
+      const foodRows = comidasDetectadas.map(item => ({
+        session_id: sessionId,
+        concept: item.name,
+        price: item.price,
+      }));
+      const { error } = await db.from('shared_food_items').insert(foodRows);
+      if (error) throw error;
+    }
+
+    if (bebidasDetectadas.length > 0) {
+      const drinkRows = bebidasDetectadas.map(item => ({
+        session_id: sessionId,
+        product: item.name,
+        unit_price: item.price,
+        quantity: 1,
+      }));
+      const { data: drinksInserted, error: drinksError } = await db
+        .from('drinks')
+        .insert(drinkRows)
+        .select('id');
+      if (drinksError) throw drinksError;
+
+      const participantRows = [];
+      (drinksInserted || []).forEach(drink => {
+        comensales.forEach(comensal => {
+          participantRows.push({
+            drink_id: drink.id,
+            diner_id: comensal.id,
+            session_id: sessionId,
+          });
+        });
+      });
+
+      if (participantRows.length > 0) {
+        const { error: participantsError } = await db.from('drink_participants').insert(participantRows);
+        if (participantsError) throw participantsError;
+      }
+    }
+
+    await fetchAllData();
+    setOcrUIState({
+      status: `Se añadieron ${itemsValidos.length} ítems. Revisa y ajusta bebidas/comida si hace falta.`,
+    });
+  } catch (error) {
+    console.error('Error aplicando ítems detectados:', error);
+    setOcrUIState({ error: 'No se pudieron guardar los ítems detectados. Inténtalo de nuevo.' });
+  } finally {
+    if (!ocrEnProgreso) return;
+    setOcrUIState({
+      status: document.getElementById('ticket-ocr-status')?.textContent || '',
+      error: document.getElementById('ticket-ocr-error')?.textContent || '',
+      processing: false,
+    });
+  }
 }
 
 function actualizarResumen() {
@@ -1047,6 +1305,23 @@ if (typeof document !== 'undefined') {
       taxDebounceTimer = setTimeout(() => syncTaxTotal(ivaInput.value), 800);
     }
   });
+
+  const btnTicketOcr = document.getElementById('btn-ticket-ocr');
+  if (btnTicketOcr) {
+    btnTicketOcr.addEventListener('click', procesarImagenTicket);
+  }
+
+  const btnTicketApply = document.getElementById('btn-ticket-apply');
+  if (btnTicketApply) {
+    btnTicketApply.addEventListener('click', aplicarItemsTicketAlReparto);
+  }
+
+  const btnTicketReclassify = document.getElementById('btn-ticket-reclassify');
+  if (btnTicketReclassify) {
+    btnTicketReclassify.addEventListener('click', recalcularCategoriasTicket);
+  }
+
+  renderTicketItems();
 
   // Inicializar Supabase
   if (!initSupabase()) return;

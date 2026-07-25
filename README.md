@@ -105,13 +105,23 @@ El código de sesión aparece en la cabecera. Pulsa 📋 para copiarlo y compart
 ### Dentro de la sesión
 
 1. **Añade comensales**: escribe el nombre de cada persona y pulsa _+ Añadir_.
-2. **Registra las bebidas**: en la sección _Bebidas_, indica la bebida, precio, cantidad y selecciona quién la tomó (uno o varios comensales). Si la comparten, el coste se divide a partes iguales entre los seleccionados.
-3. **Añade la comida común**: en la sección _Comida común_, introduce cada plato con su precio.
-4. **Introduce el total del ticket**: escribe el importe total que aparece en la cuenta.
-5. **IVA (opcional)**: si el ticket desglosa el IVA al final, introdúcelo en el campo _IVA total (€)_. Se repartirá proporcionalmente según el consumo de cada persona.
-6. **Consulta el resumen**: muestra lo que debe pagar cada persona (subtotal, IVA asignado y total final) y si el cálculo cuadra con el ticket.
+2. **(Opcional) Importa una foto del ticket**: en _Importar ticket (OCR)_ selecciona una imagen, pulsa _Procesar imagen_ y revisa la tabla editable (producto, precio y categoría bebida/comida).
+3. **Añade al reparto lo detectado**: pulsa _Añadir al reparto_ para convertir los ítems revisados en bebidas/comida dentro del flujo actual.
+4. **Registra/ajusta las bebidas**: en la sección _Bebidas_, indica la bebida, precio, cantidad y selecciona quién la tomó (uno o varios comensales). Si la comparten, el coste se divide a partes iguales entre los seleccionados.
+5. **Añade/ajusta la comida común**: en la sección _Comida común_, introduce cada plato con su precio.
+6. **Introduce el total del ticket**: escribe el importe total que aparece en la cuenta.
+7. **IVA (opcional)**: si el ticket desglosa el IVA al final, introdúcelo en el campo _IVA total (€)_. Se repartirá proporcionalmente según el consumo de cada persona.
+8. **Consulta el resumen**: muestra lo que debe pagar cada persona (subtotal, IVA asignado y total final) y si el cálculo cuadra con el ticket.
 
 > Todos los cambios se sincronizan automáticamente en los demás móviles conectados.
+
+### OCR del ticket: notas y limitaciones
+
+- El OCR usa **tesseract.js** en el navegador (sin servicios de pago ni claves externas).
+- La precisión depende de la calidad de la foto: mejor con buena luz, ticket plano y texto nítido.
+- Se detectan líneas con formato `producto + precio` (precio con coma o punto decimal y `€` opcional).
+- Las categorías se asignan con reglas locales (`bebida`/`comida`) y se pueden corregir manualmente.
+- Al añadir ítems OCR al reparto, las bebidas se crean como compartidas entre los comensales actuales para no romper el flujo colaborativo; puedes ajustarlas después manualmente.
 
 ---
 

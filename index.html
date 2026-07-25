@@ -141,6 +141,35 @@
       </div>
     </section>
 
+    <!-- ══════════════ 1.5 IMPORTAR TICKET (OCR) ══════════════ -->
+    <section class="card" id="seccion-ticket-ocr">
+      <h2>
+        <span class="icon">📷</span> Importar ticket (OCR)
+      </h2>
+      <p style="font-size:0.82rem;color:#64748b;margin-bottom:0.75rem;">
+        Sube una imagen del ticket para detectar líneas con producto y precio automáticamente.
+      </p>
+
+      <div class="input-row" style="margin-bottom:0.75rem;">
+        <div class="field">
+          <label for="ticket-image-input">Imagen del ticket</label>
+          <input type="file" id="ticket-image-input" accept="image/*">
+        </div>
+      </div>
+
+      <div class="ocr-actions">
+        <button class="btn btn-primary btn-sm" id="btn-ticket-ocr">🔎 Procesar imagen</button>
+        <button class="btn btn-sm" id="btn-ticket-reclassify" type="button">♻️ Recalcular categorías</button>
+        <button class="btn btn-sm" id="btn-ticket-apply" type="button">➕ Añadir al reparto</button>
+      </div>
+
+      <p id="ticket-ocr-status" class="ocr-status" style="display:none"></p>
+      <p id="ticket-ocr-error" class="ocr-error" style="display:none"></p>
+      <div id="ticket-items-container">
+        <p class="empty-msg">Todavía no se han detectado ítems del ticket.</p>
+      </div>
+    </section>
+
     <!-- ══════════════ 2. BEBIDAS ══════════════ -->
     <section class="card" id="seccion-bebidas">
       <h2>
@@ -287,6 +316,10 @@
 
   <!-- Supabase JS v2 (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <!-- OCR gratis en cliente -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <!-- Utilidades de parseo y clasificación del ticket -->
+  <script src="ticket-utils.js"></script>
   <!-- Credenciales del proyecto (config.js NO se sube al repo) -->
   <script src="config.js" onerror="window.__configMissing=true"></script>
   <script src="app.js"></script>
