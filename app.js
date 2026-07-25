@@ -560,8 +560,23 @@ async function aplicarItemsTicketAlReparto() {
         concept: item.name,
         price: item.price,
       }));
-      const { error } = await db.from('shared_food_items').insert(foodRows);
+      const { data: foodInserted, error } = await db.from('shared_food_items').insert(foodRows).select('id');
       if (error) throw error;
+
+      if (comensales.length > 0 && foodInserted && foodInserted.length > 0) {
+        const foodParticipantRows = [];
+        foodInserted.forEach(food => {
+          comensales.forEach(comensal => {
+            foodParticipantRows.push({
+              food_id:    food.id,
+              diner_id:   comensal.id,
+              session_id: sessionId,
+            });
+          });
+        });
+        const { error: partError } = await db.from('food_participants').insert(foodParticipantRows);
+        if (partError) throw partError;
+      }
     }
 
     if (bebidasDetectadas.length > 0) {
@@ -843,12 +858,13 @@ async function fetchAllData() {
   comidaComun = (foodRes.data || []).map(f => {
     const parts = foodParts.filter(p => p.food_id === f.id).map(p => p.diner_id);
     // Compatibilidad hacia atrás: si no hay participantes en food_participants,
-    // se consideran todos los comensales (comportamiento original)
+    // null hace que calcularResumenDetallado reparta entre todos los comensales.
+    // [] (array explícitamente vacío) solo se asigna cuando el usuario elige "Ninguno".
     return {
       id:            f.id,
       concepto:      f.concept,
       precio:        parseFloat(f.price),
-      participantes: parts,
+      participantes: parts.length > 0 ? parts : null,
     };
   });
 

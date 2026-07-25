@@ -170,3 +170,67 @@ test('ítem de comida con participantes vacíos no produce NaN', () => {
     [0, 0]
   );
 });
+
+test('ítem de comida con participantes null (datos sin food_participants en BD) se reparte entre todos', () => {
+  // Simula el caso real: fetchAllData retorna participantes:null cuando food_participants
+  // está vacío para un ítem (datos previos a la funcionalidad de participantes).
+  const resumen = calcularResumenDetallado({
+    comensales: [
+      { id: 'a', nombre: 'Ana' },
+      { id: 'b', nombre: 'Beto' },
+      { id: 'c', nombre: 'Cora' },
+    ],
+    bebidas: [
+      { producto: 'Agua', precioUnitario: 3, cantidad: 1, participantes: ['a', 'b', 'c'] },
+    ],
+    comidaComun: [
+      // participantes:null → fetchAllData lo asigna así para ítems sin food_participants
+      { concepto: 'Paella', precio: 30, participantes: null },
+    ],
+    totalCuentaIngresado: 33,
+    taxTotalIngresado: 0,
+  });
+
+  // 30 € ÷ 3 = 10 € cada uno
+  assert.deepEqual(
+    resumen.totalesPorComensal.map(t => t.comida),
+    [10, 10, 10]
+  );
+  assert.equal(resumen.totalComida, 30);
+  assert.equal(resumen.totalCalculado, 33);
+  assert.equal(resumen.diferencia, 0);
+});
+
+test('caso mixto comida+bebida: solo los participantes marcados contribuyen al total', () => {
+  // Ana y Luis pagan el vino (12 €); Marta no.
+  // La paella (18 €) entre los tres. Agua (6 €) solo Marta.
+  const resumen = calcularResumenDetallado({
+    comensales: [
+      { id: 'ana',   nombre: 'Ana' },
+      { id: 'luis',  nombre: 'Luis' },
+      { id: 'marta', nombre: 'Marta' },
+    ],
+    bebidas: [
+      { producto: 'Vino',  precioUnitario: 12, cantidad: 1, participantes: ['ana', 'luis'] },
+      { producto: 'Agua',  precioUnitario: 6,  cantidad: 1, participantes: ['marta'] },
+    ],
+    comidaComun: [
+      { concepto: 'Paella', precio: 18, participantes: ['ana', 'luis', 'marta'] },
+    ],
+    totalCuentaIngresado: 36,
+    taxTotalIngresado: 0,
+  });
+
+  const bebidas = resumen.totalesPorComensal.map(t => t.bebidas);
+  const comida  = resumen.totalesPorComensal.map(t => t.comida);
+
+  // Vino: Ana 6, Luis 6; Agua: Marta 6
+  assert.deepEqual(bebidas, [6, 6, 6]);
+  // Paella: 18÷3 = 6 cada uno
+  assert.deepEqual(comida, [6, 6, 6]);
+
+  assert.equal(resumen.totalBebidas, 18);
+  assert.equal(resumen.totalComida, 18);
+  assert.equal(resumen.totalCalculado, 36);
+  assert.equal(resumen.diferencia, 0);
+});
