@@ -108,12 +108,28 @@ El código de sesión aparece en la cabecera. Pulsa 📋 para copiarlo y compart
 2. **(Opcional) Importa una foto del ticket**: en _Importar ticket (OCR)_ selecciona una imagen, pulsa _Procesar imagen_ y revisa la tabla editable (producto, precio y categoría bebida/comida).
 3. **Añade al reparto lo detectado**: pulsa _Añadir al reparto_ para convertir los ítems revisados en bebidas/comida dentro del flujo actual.
 4. **Registra/ajusta las bebidas**: en la sección _Bebidas_, indica la bebida, precio, cantidad y selecciona quién la tomó (uno o varios comensales). Si la comparten, el coste se divide a partes iguales entre los seleccionados.
-5. **Añade/ajusta la comida común**: en la sección _Comida común_, introduce cada plato con su precio.
-6. **Introduce el total del ticket**: escribe el importe total que aparece en la cuenta.
-7. **IVA (opcional)**: si el ticket desglosa el IVA al final, introdúcelo en el campo _IVA total (€)_. Se repartirá proporcionalmente según el consumo de cada persona.
-8. **Consulta el resumen**: muestra lo que debe pagar cada persona (subtotal, IVA asignado y total final) y si el cálculo cuadra con el ticket.
+5. **Elige los participantes de cada bebida**: en la lista de bebidas se muestra quién participa en cada una.
+6. **Añade/ajusta la comida común**: en la sección _Comida común_, introduce cada plato con su precio. Debajo de cada plato aparecen los comensales con casillas de selección para indicar quién come ese plato. Puedes usar los atajos _Todos_ / _Ninguno_ por ítem.
+7. **Introduce el total del ticket**: escribe el importe total que aparece en la cuenta.
+8. **IVA (opcional)**: si el ticket desglosa el IVA al final, introdúcelo en el campo _IVA total (€)_. Se repartirá proporcionalmente según el consumo de cada persona.
+9. **Consulta el resumen**: muestra lo que debe pagar cada persona (subtotal, IVA asignado y total final) y si el cálculo cuadra con el ticket.
 
 > Todos los cambios se sincronizan automáticamente en los demás móviles conectados.
+
+### Borrado masivo de bebidas y comidas
+
+En la cabecera de las secciones _Bebidas_ y _Comida común_ encontrarás el botón **🗑 Borrar todas / Borrar todos**. Al pulsarlo se te pedirá confirmación antes de eliminar todos los ítems del tipo correspondiente. Esto resulta útil si importaste ítems incorrectos desde el OCR y quieres empezar de nuevo.
+
+### Participantes por producto
+
+Cada ítem (tanto bebida como plato de comida) permite elegir qué comensales participan en ese consumo concreto:
+
+- **Bebidas**: al registrar una bebida, marca los comensales que la tomaron con las casillas de selección.
+- **Comida**: debajo de cada plato en la lista aparecen las mismas casillas. Puedes usar _Todos_ o _Ninguno_ para marcar o desmarcar a todos de golpe.
+
+El coste del ítem se divide **exclusivamente** entre los comensales marcados. Si nadie está marcado, el ítem no se reparte (0 € asignado a todos).
+
+> **Tip móvil**: las casillas son suficientemente grandes para pulsarlas cómodamente con el dedo, siguiendo el diseño mobile-first de la app.
 
 ### OCR del ticket: notas y limitaciones
 
@@ -131,22 +147,28 @@ El código de sesión aparece en la cabecera. Pulsa 📋 para copiarlo y compart
 |---|---|
 | **Bebidas (exclusivas)** | El comensal seleccionado paga el total de esa bebida: `precio × cantidad` |
 | **Bebidas (compartidas)** | Cada participante paga su parte proporcional: `(precio × cantidad) ÷ nº participantes` |
-| **Comida común** | Se divide a partes **iguales** entre todos los comensales: `total comida ÷ número de comensales` |
+| **Comida común** | Cada plato se divide entre los comensales marcados en ese plato: `precio ÷ nº participantes del plato`. Si no hay participantes marcados, el plato no se reparte (0 €). Si el plato no tiene participantes registrados (datos previos), se divide entre todos como antes. |
 | **IVA** | Se reparte proporcionalmente al subtotal pre-IVA de cada persona: `IVA × (subtotal_i ÷ total_subtotales)`. Los céntimos sobrantes van a quien más consume (método _largest remainder_). |
 | **Total por persona** | `subtotal (bebidas + comida) + IVA asignado` |
 | **Validación** | `diferencia = total ticket − total calculado`; si la diferencia es inferior a 0,02 € se considera que **cuadra** |
 
 > Los importes se redondean a 2 decimales en cada operación para minimizar errores de coma flotante.
 
-### Ejemplo: botella de vino entre 3 personas
+### Ejemplo: botella de vino entre 2 de 3 comensales
 
-Ana, Luis y Carmen piden una botella de vino tinto de 18 €. En la sección _Bebidas_ introduces:
+Ana, Luis y Marta van a cenar. Piden una botella de vino tinto de 12 €, pero Marta no bebe.
+En la sección _Bebidas_ introduces:
 - Bebida: «Vino tinto»
-- Precio: 18,00 €
+- Precio: 12,00 €
 - Cantidad: 1
-- ¿Quién la tomó? → ☑ Ana  ☑ Luis  ☑ Carmen
+- ¿Quién la tomó? → ☑ Ana  ☑ Luis  ☐ Marta
 
-DiviCuenta asignará **6,00 €** a cada uno (18 ÷ 3). Si solo Ana y Luis la comparten, cada uno pagará **9,00 €**.
+DiviCuenta asignará **6,00 €** a Ana y **6,00 €** a Luis. Marta pagará 0 € por el vino.
+
+Además, si el plato de paella (18 €) solo lo comen Ana y Luis (Marta pidió algo por separado):
+- En la lista de _Comida_, bajo «Paella», desmarca a Marta.
+
+DiviCuenta repartirá los 18 € solo entre Ana y Luis: **9,00 €** cada uno.
 
 ---
 
@@ -161,7 +183,7 @@ DiviCuenta/
 ├── config.js           # ← Crear a partir del ejemplo (necesario en GitHub Pages)
 ├── .gitignore          # Excluye config.js
 ├── supabase/
-│   └── schema.sql      # Schema de BD + políticas RLS
+│   └── schema.sql      # Schema de BD + políticas RLS (incluye migración food_participants)
 └── README.md           # Este documento
 ```
 
