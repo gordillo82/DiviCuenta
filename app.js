@@ -730,25 +730,39 @@ function renderBebidas() {
   lista.innerHTML = '';
   bebidas.forEach(b => {
     const subtotal = round2(b.precioUnitario * b.cantidad);
-    const n = b.participantes.length || 1;
-    const porCada = round2(subtotal / n);
+    const participantesActivos = b.participantes == null
+      ? comensales.map(c => c.id)
+      : b.participantes;
 
-    const nombresParticipantes = b.participantes
-      .map(pid => {
-        const c = comensales.find(x => x.id === pid);
-        return c ? escapeHtml(c.nombre) : '?';
-      })
-      .join(', ');
+    const checkboxesHtml = comensales.map(c => `
+      <label class="participante-chip participante-chip-sm">
+        <input type="checkbox"
+               id="beb-list-part-${b.id}-${c.id}"
+               value="${c.id}"
+               ${participantesActivos.includes(c.id) ? 'checked' : ''}
+               onchange="actualizarParticipantesBebida('${b.id}')">
+        ${escapeHtml(c.nombre)}
+      </label>`).join('');
 
     const fila = document.createElement('div');
     fila.className = 'bebida-compartida-row';
     fila.innerHTML = `
       <div class="bebida-info">
-        <span class="bebida-nombre">${escapeHtml(b.producto)}</span>
-        <span class="bebida-precio">${b.cantidad} × ${fmt(b.precioUnitario)} = ${fmt(subtotal)}</span>
-        <span class="bebida-participantes">👥 ${nombresParticipantes}${n > 1 ? ` · ${fmt(porCada)} c/u` : ''}</span>
-      </div>
-      <button class="btn btn-ghost btn-sm" onclick="eliminarBebida('${b.id}')" title="Eliminar bebida">✕</button>`;
+        <div class="bebida-info-top">
+          <span class="bebida-nombre">${escapeHtml(b.producto)}</span>
+          <span class="bebida-precio">${b.cantidad} × ${fmt(b.precioUnitario)} = ${fmt(subtotal)}</span>
+          <button class="btn btn-ghost btn-sm" onclick="eliminarBebida('${b.id}')" title="Eliminar bebida">✕</button>
+        </div>
+        ${comensales.length > 0 ? `
+        <div class="bebida-participantes-editor">
+          <span class="participantes-label">¿Quién la tomó?</span>
+          <div class="participantes-chips">${checkboxesHtml}</div>
+          <div class="comida-quickactions">
+            <button class="btn-quickaction" onclick="todosBebida('${b.id}')">Todos</button>
+            <button class="btn-quickaction" onclick="ningunoBebida('${b.id}')">Ninguno</button>
+          </div>
+        </div>` : ''}
+      </div>`;
     lista.appendChild(fila);
   });
 }
@@ -1097,6 +1111,51 @@ function ningunoComida(foodId) {
     if (cb) cb.checked = false;
   });
   actualizarParticipantesComida(foodId);
+}
+
+// ─── Participantes por bebida (lista) ─────────────────────
+
+async function actualizarParticipantesBebida(drinkId) {
+  if (!db || !sessionId) return;
+
+  const participantes = comensales
+    .filter(c => {
+      const cb = document.getElementById(`beb-list-part-${drinkId}-${c.id}`);
+      return cb && cb.checked;
+    })
+    .map(c => c.id);
+
+  await db.from('drink_participants').delete().eq('drink_id', drinkId);
+
+  if (participantes.length > 0) {
+    const rows = participantes.map(dinerId => ({
+      drink_id:   drinkId,
+      diner_id:   dinerId,
+      session_id: sessionId,
+    }));
+    const { error } = await db.from('drink_participants').insert(rows);
+    if (error) { console.error('Error actualizando participantes de bebida:', error); return; }
+  }
+
+  const item = bebidas.find(b => b.id === drinkId);
+  if (item) item.participantes = participantes;
+  actualizarResumen();
+}
+
+function todosBebida(drinkId) {
+  comensales.forEach(c => {
+    const cb = document.getElementById(`beb-list-part-${drinkId}-${c.id}`);
+    if (cb) cb.checked = true;
+  });
+  actualizarParticipantesBebida(drinkId);
+}
+
+function ningunoBebida(drinkId) {
+  comensales.forEach(c => {
+    const cb = document.getElementById(`beb-list-part-${drinkId}-${c.id}`);
+    if (cb) cb.checked = false;
+  });
+  actualizarParticipantesBebida(drinkId);
 }
 
 // ─── Borrado masivo ───────────────────────────────────────
